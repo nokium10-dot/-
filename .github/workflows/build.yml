@@ -1,5 +1,5 @@
 name: Build MatrixWall Pro APK
-# Retry Telegram delivery after secrets setup
+# Retry Telegram delivery after latest chat ID update
 
 on:
   push:
