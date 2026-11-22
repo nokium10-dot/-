@@ -265,7 +265,7 @@ public class MainActivity extends Activity {
             String raw=code.trim();
             int marker=raw.indexOf("MWP1|");
             if(marker>=0) raw=raw.substring(marker);
-            int lineEnd=raw.indexOf('\\n');
+            int lineEnd=raw.indexOf('\n');
             if(lineEnd>=0) raw=raw.substring(0,lineEnd).trim();
             String[] p=raw.split("\\|");
             if(p.length!=9 || !"MWP1".equals(p[0])) throw new IllegalArgumentException();
