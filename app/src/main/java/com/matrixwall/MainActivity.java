@@ -137,12 +137,12 @@ public class MainActivity extends Activity {
         Button importDesign=button(tr("ИМПОРТИРОВАТЬ ДИЗАЙН","IMPORT DESIGN"));
         importDesign.setOnClickListener(v->showImportDesignDialog()); body.addView(importDesign);
         Button community=button(tr("ОТКРЫТЬ TELEGRAM-СООБЩЕСТВО","OPEN TELEGRAM COMMUNITY"));
-        community.setOnClickListener(v->openLink("https://t.me/pirtechacc")); body.addView(community);
+        community.setOnClickListener(v->openLink("https://t.me/pirtechtg")); body.addView(community);
 
         body.addView(label(tr("СОЦИАЛЬНЫЕ СЕТИ","SOCIAL")));
-        body.addView(text("TikTok: @pirtechacc\nTelegram: t.me/pirtechacc",14,false));
+        body.addView(text("TikTok: @pirtechacc\nTelegram: t.me/pirtechtg",14,false));
         Button tiktok=button("TikTok"); tiktok.setOnClickListener(v->openLink("https://www.tiktok.com/@pirtechacc")); body.addView(tiktok);
-        Button telegram=button("Telegram"); telegram.setOnClickListener(v->openLink("https://t.me/pirtechacc")); body.addView(telegram);
+        Button telegram=button("Telegram"); telegram.setOnClickListener(v->openLink("https://t.me/pirtechtg")); body.addView(telegram);
         body.addView(label(tr("О ПРИЛОЖЕНИИ","ABOUT")));
         TextView version=text("MatrixWall Pro 2.7",14,true); version.setGravity(Gravity.CENTER); version.setOnClickListener(v->secretTap()); body.addView(version);
         int remaining=Math.max(0,7-prefs.getInt(Settings.KEY_SECRET_TAPS,0));
