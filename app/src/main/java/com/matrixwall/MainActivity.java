@@ -42,6 +42,7 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ServerValue;
+import com.google.firebase.database.ValueEventListener;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -56,6 +57,8 @@ public class MainActivity extends Activity {
     private FirebaseAuth chatAuth;
     private DatabaseReference chatMessagesRef;
     private ChildEventListener chatListener;
+    private ValueEventListener chatConnectionListener;
+    private boolean chatHasMessages = false;
     private LinearLayout chatMessageList;
     private ScrollView chatScroll;
     private EditText chatInput;
@@ -524,18 +527,35 @@ public class MainActivity extends Activity {
         if(chatLoading)return;
         if(prefs.getString("chat_nickname","").trim().length()<2){askChatNickname();return;}
         chatLoading=true;
-        chatMessageList.addView(text(tr("Подключение к чату...","Connecting to chat..."),13,false));
+        chatMessageList.removeAllViews();
+        chatMessageList.addView(text(tr("Вход в чат...","Signing in..."),13,false));
         chatAuth=FirebaseAuth.getInstance();
         chatAuth.signInAnonymously().addOnCompleteListener(this,task->{
             chatLoading=false;
             if(!task.isSuccessful()){
-                showChatError(tr("Не удалось войти. Проверь Anonymous Authentication в Firebase.","Sign-in failed. Check Anonymous Authentication in Firebase."));
+                String reason = task.getException()==null ? "unknown" : task.getException().getMessage();
+                showChatError(tr("Не удалось войти в Firebase: ","Firebase sign-in failed: ")+reason);
                 return;
             }
-            chatMessagesRef=FirebaseDatabase.getInstance("https://matrixwall-chat-default-rtdb.firebaseio.com/")
-                .getReference("rooms").child("global").child("messages");
+            FirebaseDatabase database=FirebaseDatabase.getInstance("https://matrixwall-chat-default-rtdb.firebaseio.com/");
+            chatMessagesRef=database.getReference("rooms").child("global").child("messages");
+            chatHasMessages=false;
+            chatMessageList.removeAllViews();
+            chatMessageList.addView(text(tr("Проверяем соединение с базой...","Checking database connection..."),13,false));
+            chatConnectionListener=new ValueEventListener(){
+                public void onDataChange(DataSnapshot snapshot){
+                    Boolean connected=snapshot.getValue(Boolean.class);
+                    if(chatMessageList==null)return;
+                    if(Boolean.TRUE.equals(connected)){
+                        if(!chatHasMessages){chatMessageList.removeAllViews();chatMessageList.addView(text(tr("Подключено. Пока нет сообщений.","Connected. No messages yet."),13,false));}
+                    } else if(!chatHasMessages){showChatError(tr("Нет соединения с Firebase Database. Проверь интернет и URL базы.","No connection to Firebase Database. Check internet and database URL."));}
+                }
+                public void onCancelled(DatabaseError error){showChatError(tr("Ошибка проверки соединения: ","Connection check failed: ")+error.getMessage());}
+            };
+            database.getReference(".info/connected").addValueEventListener(chatConnectionListener);
             chatListener=new ChildEventListener(){
                 public void onChildAdded(DataSnapshot snap,String previous){
+                    if(!chatHasMessages){chatHasMessages=true;chatMessageList.removeAllViews();}
                     String nick=snap.child("nickname").getValue(String.class);
                     String message=snap.child("text").getValue(String.class);
                     if(message==null||nick==null)return;
@@ -604,6 +624,7 @@ public class MainActivity extends Activity {
 
     @Override protected void onDestroy() {
         if(chatMessagesRef!=null&&chatListener!=null)chatMessagesRef.removeEventListener(chatListener);
+        if(chatConnectionListener!=null)FirebaseDatabase.getInstance("https://matrixwall-chat-default-rtdb.firebaseio.com/").getReference(".info/connected").removeEventListener(chatConnectionListener);
         super.onDestroy();
     }
 
