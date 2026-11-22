@@ -144,7 +144,7 @@ public class MainActivity extends Activity {
         Button tiktok=button("TikTok"); tiktok.setOnClickListener(v->openLink("https://www.tiktok.com/@pirtechacc")); body.addView(tiktok);
         Button telegram=button("Telegram"); telegram.setOnClickListener(v->openLink("https://t.me/pirtechacc")); body.addView(telegram);
         body.addView(label(tr("О ПРИЛОЖЕНИИ","ABOUT")));
-        TextView version=text("MatrixWall Pro 2.3",14,true); version.setGravity(Gravity.CENTER); version.setOnClickListener(v->secretTap()); body.addView(version);
+        TextView version=text("MatrixWall Pro 2.7",14,true); version.setGravity(Gravity.CENTER); version.setOnClickListener(v->secretTap()); body.addView(version);
         int remaining=Math.max(0,7-prefs.getInt(Settings.KEY_SECRET_TAPS,0));
         if(!prefs.getBoolean(Settings.KEY_SECRET_UNLOCKED,false)) body.addView(text(tr("Секретная фигура: осталось нажатий — ","Secret shape: taps remaining — ")+remaining,12,false));
         else body.addView(text(tr("Секретная фигура разблокирована","Secret shape unlocked"),12,true));
@@ -579,6 +579,23 @@ public class MainActivity extends Activity {
         if(chatMessageList!=null){chatMessageList.removeAllViews();chatMessageList.addView(text(message,13,true));}
     }
 
+    private void showFirebaseWriteError(Exception error) {
+        String details;
+        if (error == null) {
+            details = tr("Firebase не вернул подробности ошибки.","Firebase did not provide error details.");
+        } else {
+            String message = error.getMessage();
+            details = error.getClass().getSimpleName();
+            if (message != null && !message.trim().isEmpty()) details += ": " + message;
+            details += "\\n\\n" + error.toString();
+        }
+        new AlertDialog.Builder(this)
+            .setTitle(tr("Точная ошибка отправки","Exact send error"))
+            .setMessage(details)
+            .setPositiveButton("OK", null)
+            .show();
+    }
+
     private void sendChatMessage() {
         if(chatMessagesRef==null||chatAuth==null||chatAuth.getCurrentUser()==null){
             Toast.makeText(this,tr("Чат ещё подключается","Chat is still connecting"),Toast.LENGTH_SHORT).show();return;
@@ -593,7 +610,7 @@ public class MainActivity extends Activity {
         message.put("timestamp",ServerValue.TIMESTAMP);
         chatMessagesRef.push().setValue(message).addOnCompleteListener(task->{
             if(task.isSuccessful())chatInput.setText("");
-            else Toast.makeText(this,tr("Не удалось отправить сообщение. Проверь правила базы.","Message failed. Check database rules."),Toast.LENGTH_LONG).show();
+            else showFirebaseWriteError(task.getException());
         });
     }
 
@@ -616,7 +633,7 @@ public class MainActivity extends Activity {
                     if(task.isSuccessful()) {
                         Toast.makeText(this,tr("Успешно! Firebase сохранил тестовое сообщение.","Success! Firebase saved the test message."),Toast.LENGTH_LONG).show();
                     } else {
-                        Toast.makeText(this,tr("Ошибка записи в Firebase. Проверь правила базы.","Firebase write failed. Check the database rules."),Toast.LENGTH_LONG).show();
+                        showFirebaseWriteError(task.getException());
                     }
                 });
             }).show();
