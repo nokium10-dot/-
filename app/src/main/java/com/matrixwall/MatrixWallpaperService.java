@@ -418,6 +418,48 @@ public class MatrixWallpaperService extends WallpaperService {
             }
         }
 
+        // ---------- starfield ----------
+        private void drawStarfield(Canvas c) {
+            paint.setTextAlign(Paint.Align.CENTER);
+            int count = 220;
+            float depthSpan = Math.max(w, h);
+            for (int i = 0; i < count; i++) {
+                float seedX = ((i * 73) % 997) / 997f;
+                float seedY = ((i * 191) % 991) / 991f;
+                float speed = 18f + (i % 7) * 12f;
+                float x = seedX * w;
+                float y = (seedY * h + time * speed) % (h + 20f);
+                float pulse = 0.5f + 0.5f * (float) Math.sin(time * 1.8f + i);
+                float size = 8f + (i % 5) * 3f;
+                paint.setTextSize(size);
+                paint.setColor(pulse > 0.82f ? hi(245) : main(80 + (int)(150 * pulse)));
+                one[0] = glyphs[i % glyphs.length];
+                c.drawText(one, 0, 1, x, y, paint);
+            }
+        }
+
+        // ---------- code grid ----------
+        private void drawCodeGrid(Canvas c) {
+            float cw = Math.max(24f, w / 17f);
+            float ch = cw * 1.4f;
+            int colsN = (int) (w / cw) + 1;
+            int rowsN = (int) (h / ch) + 1;
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTextSize(cw * 0.7f);
+            for (int row = 0; row < rowsN; row++) {
+                for (int col = 0; col < colsN; col++) {
+                    float phase = time * 1.5f + row * 0.31f + col * 0.19f;
+                    float wave = (float) Math.sin(phase);
+                    int alpha = 45 + (int) (180 * (wave * 0.5f + 0.5f));
+                    paint.setColor(wave > 0.75f ? hi(alpha) : main(alpha));
+                    int index = Math.abs(row * 31 + col * 13 + tick / 12) % CHARS.length();
+                    one[0] = CHARS.charAt(index);
+                    c.drawText(one, 0, 1, col * cw + cw / 2f,
+                            row * ch + ch / 2f + wave * ch * 0.22f, paint);
+                }
+            }
+        }
+
         // ---------- shapes ----------
         private void drawShapes(Canvas c) {
             float[] a = ShapeBank.get(curShape);
