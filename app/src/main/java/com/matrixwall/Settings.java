@@ -6,7 +6,8 @@ final class Settings {
     static final String KEY_SIDE = "side";         // 0 слева, 1 справа, 2 обе
     static final String KEY_SHAPE = "shape";       // 0 авто, 1..5 конкретная фигура
     static final String KEY_COLOR = "color";       // цветовая тема
-    static final String KEY_RAIN = "rain";         // фоновый дождь из символов\n    static final String KEY_SPLASH_SOUND = "splash_sound";
+    static final String KEY_RAIN = "rain";         // фоновый дождь из символов
+    static final String KEY_SPLASH_SOUND = "splash_sound";
     static final String[] STYLE_NAMES = {
             "Фигуры", "Матрица", "Терминал", "Галактика",
             "Тоннель", "Волна", "Звёздное поле", "Кодовая сетка"
