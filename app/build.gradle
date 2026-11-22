@@ -10,8 +10,8 @@ android {
         applicationId "com.matrixwall.pro"
         minSdk 24
         targetSdk 34
-        versionCode 6
-        versionName "2.2 Pro"
+        versionCode 7
+        versionName "2.3 Pro"
     }
 
     signingConfigs {
