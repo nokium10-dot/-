@@ -178,6 +178,11 @@ public class MainActivity extends Activity {
 
     private void showSplash() {
         FrameLayout frame = new FrameLayout(this);
+        // showScreen() has already attached root with setContentView(); detach it
+        // before placing it inside the splash container to avoid an already-parented View crash.
+        if (root.getParent() instanceof ViewGroup) {
+            ((ViewGroup) root.getParent()).removeView(root);
+        }
         frame.addView(root, new FrameLayout.LayoutParams(-1, -1));
         TextView logo = text("MATRIXWALL\\nPRO", 30, true);
         logo.setGravity(Gravity.CENTER);
