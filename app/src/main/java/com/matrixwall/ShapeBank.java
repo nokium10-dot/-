@@ -3,8 +3,9 @@ package com.matrixwall;
 /** Наборы 3D-точек для фигур. Каждая фигура ровно из N точек (для плавного перехода). */
 final class ShapeBank {
     static final int N = 300;
-    static final int COUNT = 5;
-    static final String[] NAMES = {"Куб", "Сфера", "Тор", "Пирамида", "ДНК"};
+    static final int COUNT = 12;
+    static final int STANDARD_COUNT = 11;
+    static final String[] NAMES = {"Куб", "Сфера", "Тор", "Пирамида", "ДНК", "Октаэдр", "Звезда", "Сердце", "Спираль", "Кристалл", "Атом", "Феникс (секрет)"};
 
     private static final float[][] CACHE = new float[COUNT][];
 
@@ -22,7 +23,14 @@ final class ShapeBank {
             case 1: return sphere();
             case 2: return torus();
             case 3: return pyramid();
-            default: return helix();
+            case 4: return helix();
+            case 5: return octahedron();
+            case 6: return star();
+            case 7: return heart();
+            case 8: return spiral();
+            case 9: return crystal();
+            case 10: return atom();
+            default: return phoenix();
         }
     }
 
@@ -103,6 +111,44 @@ final class ShapeBank {
             float[] b = v[ed[1]];
             put(p, i, a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t);
         }
+        return p;
+    }
+
+
+    private static float[] octahedron() {
+        float[] p = new float[N * 3];
+        float[][] v={{1,0,0},{-1,0,0},{0,1,0},{0,-1,0},{0,0,1},{0,0,-1}};
+        int[][] e={{0,2},{2,1},{1,3},{3,0},{0,4},{2,4},{1,4},{3,4},{0,5},{2,5},{1,5},{3,5}};
+        for(int i=0;i<N;i++){int[] q=e[i%12];float t=((i/12)+0.5f)/25f;float[] a=v[q[0]],b=v[q[1]];put(p,i,a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t);}
+        return p;
+    }
+    private static float[] star() {
+        float[] p=new float[N*3];
+        for(int i=0;i<N;i++){double a=i*2*Math.PI/100.0;float r=(i%2==0)?0.95f:0.42f;float y=((i/100)%3-1)*0.22f;put(p,i,(float)Math.cos(a)*r,y,(float)Math.sin(a)*r);}
+        return p;
+    }
+    private static float[] heart() {
+        float[] p=new float[N*3];
+        for(int i=0;i<N;i++){double t=2*Math.PI*i/N;float x=(float)(16*Math.pow(Math.sin(t),3))/18f;float y=(float)(-(13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t)))/18f;float z=(float)Math.sin(t*3)*0.16f;put(p,i,x,y,z);}
+        return p;
+    }
+    private static float[] spiral() {
+        float[] p=new float[N*3];
+        for(int i=0;i<N;i++){float t=i/(float)(N-1);double a=t*10*Math.PI;float r=0.08f+t*0.85f;put(p,i,(float)Math.cos(a)*r,(t*2f-1f)*0.85f,(float)Math.sin(a)*r);}
+        return p;
+    }
+    private static float[] crystal() {
+        float[] p=new float[N*3];float[][] v={{0,-1,0},{0,1,0},{-0.65f,0,-0.65f},{0.65f,0,-0.65f},{0.65f,0,0.65f},{-0.65f,0,0.65f}};
+        int[][] e={{0,2},{0,3},{0,4},{0,5},{1,2},{1,3},{1,4},{1,5},{2,3},{3,4},{4,5},{5,2}};
+        for(int i=0;i<N;i++){int[] q=e[i%12];float t=((i/12)+0.5f)/25f;float[] a=v[q[0]],b=v[q[1]];put(p,i,a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t);}return p;
+    }
+    private static float[] atom() {
+        float[] p=new float[N*3];
+        for(int i=0;i<N;i++){int orbit=i%3;float t=(i/3)/(float)(N/3-1);double a=t*2*Math.PI;float r=0.82f;float x=(float)Math.cos(a)*r,y=(float)Math.sin(a)*r,z=0;if(orbit==1){x=(float)Math.cos(a)*r;z=(float)Math.sin(a)*r;}if(orbit==2){y=(float)Math.cos(a)*r;z=(float)Math.sin(a)*r;}put(p,i,x,y,z);}return p;
+    }
+    private static float[] phoenix() {
+        float[] p=new float[N*3];
+        for(int i=0;i<N;i++){float t=i/(float)(N-1);double a=t*8*Math.PI;float wing=(float)Math.sin(a)*0.9f;float y=(t*2f-1f)*0.8f;float x=(float)Math.sin(a*0.5)*0.22f;float z=wing*(float)Math.cos(t*Math.PI);put(p,i,x+wing,y,z);}
         return p;
     }
 
