@@ -16,6 +16,7 @@ import android.media.AudioManager;
 import android.media.ToneGenerator;
 import android.view.View;
 import android.view.animation.AlphaAnimation;
+import android.view.animation.Animation;
 import android.widget.FrameLayout;
 import android.view.Gravity;
 import android.view.ViewGroup;
@@ -154,8 +155,14 @@ public class MainActivity extends Activity {
         new Handler(Looper.getMainLooper()).postDelayed(() -> {
             AlphaAnimation out = new AlphaAnimation(1f, 0f);
             out.setDuration(350);
+            out.setAnimationListener(new Animation.AnimationListener() {
+                @Override public void onAnimationStart(Animation animation) {}
+                @Override public void onAnimationRepeat(Animation animation) {}
+                @Override public void onAnimationEnd(Animation animation) {
+                    screen.removeView(splash);
+                }
+            });
             splash.startAnimation(out);
-            screen.removeView(splash);
         }, 1250);
     }
 
