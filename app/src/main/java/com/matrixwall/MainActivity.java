@@ -150,7 +150,7 @@ public class MainActivity extends Activity {
         prefs.edit().putInt(Settings.KEY_SECRET_TAPS,taps).apply();
         int left=Math.max(0,7-taps);
         if(left==0) {
-            prefs.edit().putBoolean(Settings.KEY_SECRET_UNLOCKED,true).putInt(Settings.KEY_SHAPE,ShapeBank.COUNT-1).apply();
+            prefs.edit().putBoolean(Settings.KEY_SECRET_UNLOCKED,true).putInt(Settings.KEY_SHAPE,ShapeBank.COUNT).apply();
             new AlertDialog.Builder(this).setTitle(tr("СЕКРЕТНАЯ ФИГУРА ОТКРЫТА!","SECRET SHAPE UNLOCKED!"))
                 .setMessage(tr("Открыта фигура «Феникс». Она уже выбрана в студии обоев.","The Phoenix shape is unlocked and selected in Wallpaper Studio."))
                 .setPositiveButton("OK",(d,w)->showScreen()).show();
