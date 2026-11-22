@@ -10,8 +10,8 @@ android {
         applicationId "com.matrixwall.pro"
         minSdk 24
         targetSdk 34
-        versionCode 2
-        versionName "1.0 Pro"
+        versionCode 3
+        versionName "1.1 Pro"
     }
 
     buildTypes {
