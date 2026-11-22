@@ -56,6 +56,7 @@ public class MatrixWallpaperService extends WallpaperService {
         private int shapeMode = 0;
         private boolean rain = true;
         private int cr = 0, cg = 255, cb = 65, hr = 190, hg = 255, hb = 200;
+        private float rotationSpeed = 1f, textSpeed = 1f;
 
         // shapes animation
         private float yaw, wobble;
@@ -100,6 +101,8 @@ public class MatrixWallpaperService extends WallpaperService {
         private void loadPrefs() {
             style = prefs.getInt(Settings.KEY_STYLE, 0);
             if (style < 0 || style >= Settings.STYLE_NAMES.length) style = 0;
+            rotationSpeed = Math.max(0.1f, Math.min(3f, prefs.getInt(Settings.KEY_ROTATION_SPEED, 100) / 100f));
+            textSpeed = Math.max(0.1f, Math.min(3f, prefs.getInt(Settings.KEY_TEXT_SPEED, 100) / 100f));
 
             int color = prefs.getInt(Settings.KEY_COLOR, 0);
             if (color < 0 || color >= Settings.COLORS.length) color = 0;
@@ -195,7 +198,7 @@ public class MatrixWallpaperService extends WallpaperService {
             if (++tick % 60 == 0) loadPrefs();
 
             time += dt;
-            yaw += dt * 0.9f;
+            yaw += dt * 0.9f * rotationSpeed;
             wobble += dt * 0.5f;
 
             if (style == 0 && shapeMode == 0) {
@@ -223,7 +226,7 @@ public class MatrixWallpaperService extends WallpaperService {
 
             if (colY != null) {
                 for (int i = 0; i < cols; i++) {
-                    colY[i] += colSpeed[i] * dt;
+                    colY[i] += colSpeed[i] * dt * textSpeed;
                     if (colY[i] - TRAIL * cell > h) {
                         colY[i] = -rnd.nextFloat() * h * 0.5f;
                         colSpeed[i] = cell * (4f + rnd.nextFloat() * 8f);
@@ -232,7 +235,7 @@ public class MatrixWallpaperService extends WallpaperService {
             }
 
             if (style == 2) {
-                termTimer += dt;
+                termTimer += dt * textSpeed;
                 while (termTimer > 0.12f) {
                     termTimer -= 0.12f;
                     lines.add(makeLine());
@@ -290,6 +293,11 @@ public class MatrixWallpaperService extends WallpaperService {
                     break;
                 case 7:
                     drawCodeGrid(c);
+                    break;
+                case 8: case 9: case 10: case 11:
+                case 12: case 13: case 14: case 15:
+                    if (rain && style != 14) drawRain(c, 0.22f);
+                    drawExtra(c, style);
                     break;
                 default:
                     if (rain) drawRain(c, 0.55f);
@@ -464,6 +472,64 @@ public class MatrixWallpaperService extends WallpaperService {
                     c.drawText(one, 0, 1, col * cw + cw / 2f,
                             row * ch + ch / 2f + wave * ch * 0.22f, paint);
                 }
+            }
+        }
+
+
+        // Additional animated scenes: aurora, orbit, pulse, rings, particles,
+        // digital spiral, glyph rain and geometric field.
+        private void drawExtra(Canvas c, int mode) {
+            paint.setTextAlign(Paint.Align.CENTER);
+            float base = Math.min(w, h);
+            int count = mode == 12 ? 180 : 96;
+            for (int i = 0; i < count; i++) {
+                float a = i * 2.39996f + time * (0.12f + rotationSpeed * 0.18f);
+                float p = (i + 1f) / count;
+                float x, y, size;
+                if (mode == 8) { // aurora ribbons
+                    x = p * w;
+                    y = h * (0.28f + 0.12f * (float)Math.sin(p * 9f + time * 0.5f)
+                            + 0.08f * (float)Math.sin(p * 19f - time * 0.35f));
+                    size = 8f + 12f * (0.5f + 0.5f * (float)Math.sin(a));
+                } else if (mode == 9) { // orbiting glyphs
+                    float r = base * (0.10f + 0.32f * p);
+                    x = w * 0.5f + (float)Math.cos(a * 0.55f) * r;
+                    y = h * 0.46f + (float)Math.sin(a * 0.55f) * r * 0.7f;
+                    size = 9f + 10f * p;
+                } else if (mode == 10) { // pulse
+                    float r = base * (0.04f + 0.42f * ((p + time * 0.12f) % 1f));
+                    x = w * 0.5f + (float)Math.cos(a) * r;
+                    y = h * 0.48f + (float)Math.sin(a) * r;
+                    size = 9f + 8f * (1f - p);
+                } else if (mode == 11) { // rings
+                    float r = base * (0.06f + 0.4f * ((p + time * 0.08f) % 1f));
+                    x = w * 0.5f + (float)Math.cos(a) * r;
+                    y = h * 0.48f + (float)Math.sin(a) * r * 0.8f;
+                    size = 10f + 6f * p;
+                } else if (mode == 12) { // particles
+                    x = (float)((i * 97L) % 997) / 997f * w;
+                    y = (float)(((i * 193L) % 991) / 991f * h + time * (12f + i % 5 * 8f) * textSpeed) % h;
+                    size = 7f + i % 8;
+                } else if (mode == 13) { // digital spiral
+                    float r = base * (0.015f + p * 0.42f);
+                    x = w * 0.5f + (float)Math.cos(a * 1.8f) * r;
+                    y = h * 0.48f + (float)Math.sin(a * 1.8f) * r;
+                    size = 8f + 9f * p;
+                } else if (mode == 14) { // dense glyph rain
+                    x = (i % 18) * (w / 18f) + (float)Math.sin(time + i) * 9f;
+                    y = ((i * 83f + time * (55f + i % 7 * 9f) * textSpeed) % (h + 60f));
+                    size = 12f + i % 9;
+                } else { // geometric field
+                    float r = base * (0.08f + 0.34f * p);
+                    x = w * 0.5f + (float)Math.cos(a * 1.5f) * r;
+                    y = h * 0.48f + (float)Math.sin(a * 1.5f) * r * 0.7f;
+                    size = 8f + 11f * (0.5f + 0.5f * (float)Math.sin(a));
+                }
+                int alpha = 70 + (int)(175 * (0.5f + 0.5f * (float)Math.sin(a * 0.7f)));
+                paint.setColor(i % 9 == 0 ? hi(alpha) : main(alpha));
+                paint.setTextSize(size);
+                one[0] = glyphs[i % glyphs.length];
+                c.drawText(one, 0, 1, x, y, paint);
             }
         }
 
