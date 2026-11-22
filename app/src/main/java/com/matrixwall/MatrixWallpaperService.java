@@ -55,6 +55,7 @@ public class MatrixWallpaperService extends WallpaperService {
         private int side = 0;
         private int shapeMode = 0;
         private boolean rain = true;
+        private boolean glow = true;
         private int cr = 0, cg = 255, cb = 65, hr = 190, hg = 255, hb = 200;
         private float rotationSpeed = 1f, textSpeed = 1f;
 
@@ -117,6 +118,7 @@ public class MatrixWallpaperService extends WallpaperService {
             side = prefs.getInt(Settings.KEY_SIDE, 0);
             shapeMode = prefs.getInt(Settings.KEY_SHAPE, 0);
             rain = prefs.getBoolean(Settings.KEY_RAIN, true);
+            glow = prefs.getBoolean(Settings.KEY_GLOW, true);
             if (shapeMode > 0 && shapeMode <= ShapeBank.COUNT) {
                 curShape = shapeMode - 1;
                 morphing = false;
@@ -379,6 +381,7 @@ public class MatrixWallpaperService extends WallpaperService {
                 one[0] = glyphs[i % glyphs.length];
                 c.drawText(one, 0, 1, sx, sy + size * 0.35f, paint);
             }
+            paint.clearShadowLayer();
         }
 
         // ---------- tunnel (exclusive) ----------
@@ -558,6 +561,7 @@ public class MatrixWallpaperService extends WallpaperService {
             float cosP = (float) Math.cos(pitch);
             float sinP = (float) Math.sin(pitch);
             float baseSize = radius * 0.14f;
+            if (glow) paint.setShadowLayer(baseSize * 0.9f, 0f, 0f, hi(190));
 
             for (int i = 0; i < ShapeBank.N; i++) {
                 float x = a[i * 3];
