@@ -139,7 +139,7 @@ public class MainActivity extends Activity {
         return group;
     }
 
-    private SeekBar speedBar(String key,int min,int max,int def) {
+    private LinearLayout speedBar(String key,int min,int max,int def) {
         LinearLayout wrap=new LinearLayout(this); wrap.setOrientation(LinearLayout.VERTICAL);
         TextView value=text("",13,false); SeekBar bar=new SeekBar(this);
         bar.setMax(max-min); int saved=prefs.getInt(key,def); saved=Math.max(min,Math.min(max,saved));
