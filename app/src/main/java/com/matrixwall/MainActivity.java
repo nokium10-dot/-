@@ -10,6 +10,13 @@ import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.media.AudioManager;
+import android.media.ToneGenerator;
+import android.view.View;
+import android.view.animation.AlphaAnimation;
+import android.widget.FrameLayout;
 import android.view.Gravity;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -73,22 +80,83 @@ public class MainActivity extends Activity {
                 prefs.edit().putBoolean(Settings.KEY_RAIN, isChecked).apply());
         root.addView(rain);
 
+        CheckBox splashSound = new CheckBox(this);
+        splashSound.setText("Звук заставки");
+        splashSound.setTextColor(GREEN);
+        splashSound.setTypeface(Typeface.MONOSPACE);
+        splashSound.setButtonTintList(ColorStateList.valueOf(GREEN));
+        splashSound.setChecked(prefs.getBoolean(Settings.KEY_SPLASH_SOUND, true));
+        splashSound.setOnCheckedChangeListener((buttonView, checked) ->
+                prefs.edit().putBoolean(Settings.KEY_SPLASH_SOUND, checked).apply());
+        root.addView(splashSound);
+
         root.addView(label("MATRIXWALL PRO"));
         root.addView(text("Все стили, фигуры и цветовые темы доступны без кода.", 13, false));
-
-        Button tiktok = greenButton("TIKTOK  @PIRTECHACC", 48);
-        tiktok.setOnClickListener(v -> openLink("https://www.tiktok.com/@pirtechacc"));
-        root.addView(tiktok);
-        Button telegram = greenButton("TELEGRAM  @PIRTECHACC", 48);
-        telegram.setOnClickListener(v -> openLink("https://t.me/pirtechacc"));
-        root.addView(telegram);
 
         Button set = greenButton("УСТАНОВИТЬ ОБОИ", 56);
         ((LinearLayout.LayoutParams) set.getLayoutParams()).topMargin = dp(32);
         set.setOnClickListener(v -> applyWallpaper());
         root.addView(set);
 
-        setContentView(scroll);
+        LinearLayout shell = new LinearLayout(this);
+        shell.setOrientation(LinearLayout.HORIZONTAL);
+        shell.setBackgroundColor(Color.BLACK);
+        shell.addView(scroll, new LinearLayout.LayoutParams(0,
+                ViewGroup.LayoutParams.MATCH_PARENT, 1f));
+
+        LinearLayout rail = new LinearLayout(this);
+        rail.setOrientation(LinearLayout.VERTICAL);
+        rail.setGravity(Gravity.CENTER_HORIZONTAL);
+        rail.setPadding(dp(5), dp(18), dp(5), dp(12));
+        rail.setBackgroundColor(Color.rgb(0, 28, 8));
+        LinearLayout.LayoutParams railLp = new LinearLayout.LayoutParams(dp(92),
+                ViewGroup.LayoutParams.MATCH_PARENT);
+        shell.addView(rail, railLp);
+        TextView railTitle = text("SOCIAL", 12, true);
+        railTitle.setGravity(Gravity.CENTER);
+        rail.addView(railTitle);
+        Button tiktok = greenButton("TIK\nTOK", 64);
+        tiktok.setTextSize(11);
+        tiktok.setOnClickListener(v -> openLink("https://www.tiktok.com/@pirtechacc"));
+        rail.addView(tiktok);
+        Button telegram = greenButton("TELE\nGRAM", 64);
+        telegram.setTextSize(11);
+        telegram.setOnClickListener(v -> openLink("https://t.me/pirtechacc"));
+        rail.addView(telegram);
+
+        FrameLayout screen = new FrameLayout(this);
+        screen.addView(shell, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        setContentView(screen);
+        showSplash(screen);
+    }
+
+    private void showSplash(FrameLayout screen) {
+        FrameLayout splash = new FrameLayout(this);
+        splash.setBackgroundColor(Color.BLACK);
+        TextView logo = text("MATRIXWALL\nPRO", 30, true);
+        logo.setGravity(Gravity.CENTER);
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+        splash.addView(logo, lp);
+        screen.addView(splash, lp);
+        AlphaAnimation fade = new AlphaAnimation(0f, 1f);
+        fade.setDuration(850);
+        logo.startAnimation(fade);
+        if (prefs.getBoolean(Settings.KEY_SPLASH_SOUND, true)) {
+            try {
+                ToneGenerator tone = new ToneGenerator(AudioManager.STREAM_MUSIC, 45);
+                tone.startTone(ToneGenerator.TONE_PROP_ACK, 220);
+                new Handler(Looper.getMainLooper()).postDelayed(tone::release, 500);
+            } catch (Exception ignored) {
+            }
+        }
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            AlphaAnimation out = new AlphaAnimation(1f, 0f);
+            out.setDuration(350);
+            splash.startAnimation(out);
+            screen.removeView(splash);
+        }, 1250);
     }
 
     private Button greenButton(String label, int heightDp) {
