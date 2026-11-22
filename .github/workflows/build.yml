@@ -1,4 +1,5 @@
 name: Build MatrixWall Pro APK
+# Retry Telegram delivery after secrets setup
 
 on:
   push:
