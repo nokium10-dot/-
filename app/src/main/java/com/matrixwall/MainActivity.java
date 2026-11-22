@@ -481,6 +481,8 @@ public class MainActivity extends Activity {
         body.addView(text(tr("Общайся с другими пользователями. Не публикуй личные данные.","Chat with other users. Do not share personal information."),12,false));
         Button changeNick=button(tr("ИЗМЕНИТЬ НИК","CHANGE NICKNAME"));
         changeNick.setOnClickListener(v->askChatNickname()); body.addView(changeNick);
+        Button testFirebase=button(tr("ПРОВЕРИТЬ FIREBASE","TEST FIREBASE CONNECTION"));
+        testFirebase.setOnClickListener(v->runFirebaseTest()); body.addView(testFirebase);
         chatScroll=new ScrollView(this);
         chatMessageList=new LinearLayout(this); chatMessageList.setOrientation(LinearLayout.VERTICAL);
         chatMessageList.setPadding(dp(8),dp(8),dp(8),dp(8));
@@ -573,6 +575,31 @@ public class MainActivity extends Activity {
             if(task.isSuccessful())chatInput.setText("");
             else Toast.makeText(this,tr("Не удалось отправить сообщение. Проверь правила базы.","Message failed. Check database rules."),Toast.LENGTH_LONG).show();
         });
+    }
+
+    private void runFirebaseTest() {
+        if(chatMessagesRef==null||chatAuth==null||chatAuth.getCurrentUser()==null) {
+            Toast.makeText(this,tr("Чат ещё подключается. Попробуй через секунду.","Chat is still connecting. Try again in a moment."),Toast.LENGTH_SHORT).show();
+            return;
+        }
+        new AlertDialog.Builder(this)
+            .setTitle(tr("Проверка Firebase","Firebase connection test"))
+            .setMessage(tr("Будет отправлено одно сообщение с пометкой [ТЕСТ] в общий чат. Его увидят другие пользователи.","One message marked [TEST] will be posted to the public chat and visible to other users."))
+            .setNegativeButton(tr("Отмена","Cancel"),null)
+            .setPositiveButton(tr("Отправить тест","Send test"),(dialog,which)->{
+                Map<String,Object> message=new HashMap<>();
+                message.put("uid",chatAuth.getCurrentUser().getUid());
+                message.put("nickname",prefs.getString("chat_nickname","User"));
+                message.put("text","[ТЕСТ] Проверка соединения MatrixWall Pro — запись в Firebase.");
+                message.put("timestamp",ServerValue.TIMESTAMP);
+                chatMessagesRef.push().setValue(message).addOnCompleteListener(this,task->{
+                    if(task.isSuccessful()) {
+                        Toast.makeText(this,tr("Успешно! Firebase сохранил тестовое сообщение.","Success! Firebase saved the test message."),Toast.LENGTH_LONG).show();
+                    } else {
+                        Toast.makeText(this,tr("Ошибка записи в Firebase. Проверь правила базы.","Firebase write failed. Check the database rules."),Toast.LENGTH_LONG).show();
+                    }
+                });
+            }).show();
     }
 
     @Override protected void onDestroy() {
