@@ -23,6 +23,8 @@ import android.widget.FrameLayout;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.EditText;
+import android.text.InputType;
 import android.widget.ImageView;
 import android.widget.ArrayAdapter;
 import android.widget.CheckBox;
@@ -97,15 +99,28 @@ public class MainActivity extends Activity {
         Button random=button(tr("СЛУЧАЙНЫЙ ДИЗАЙН","RANDOM DESIGN"));
         random.setOnClickListener(v->randomizeDesign()); body.addView(random);
 
+        body.addView(label(tr("МОИ ПРЕСЕТЫ","MY PRESETS")));
+        body.addView(text(tr("Сохраняй любимые комбинации и быстро возвращайся к ним.","Save favorite combinations and restore them anytime."),13,false));
+        addCustomPresetButton(0); addCustomPresetButton(1); addCustomPresetButton(2); addCustomPresetButton(3);
+
         Button apply=button(tr("УСТАНОВИТЬ ОБОИ","APPLY WALLPAPER"));
         apply.setOnClickListener(v->applyWallpaper()); body.addView(apply);
+
+        body.addView(label(tr("ОБМЕН ДИЗАЙНАМИ","DESIGN EXCHANGE")));
+        body.addView(text(tr("Отправляй свой дизайн друзьям или вставляй код, который прислал другой пользователь.","Send your design to friends or paste a code shared by another user."),13,false));
+        Button shareDesign=button(tr("ПОДЕЛИТЬСЯ МОИМ ДИЗАЙНОМ","SHARE MY DESIGN"));
+        shareDesign.setOnClickListener(v->shareCurrentDesign()); body.addView(shareDesign);
+        Button importDesign=button(tr("ИМПОРТИРОВАТЬ ДИЗАЙН","IMPORT DESIGN"));
+        importDesign.setOnClickListener(v->showImportDesignDialog()); body.addView(importDesign);
+        Button community=button(tr("ОТКРЫТЬ TELEGRAM-СООБЩЕСТВО","OPEN TELEGRAM COMMUNITY"));
+        community.setOnClickListener(v->openLink("https://t.me/pirtechacc")); body.addView(community);
 
         body.addView(label(tr("СОЦИАЛЬНЫЕ СЕТИ","SOCIAL")));
         body.addView(text("TikTok: @pirtechacc\nTelegram: t.me/pirtechacc",14,false));
         Button tiktok=button("TikTok"); tiktok.setOnClickListener(v->openLink("https://www.tiktok.com/@pirtechacc")); body.addView(tiktok);
         Button telegram=button("Telegram"); telegram.setOnClickListener(v->openLink("https://t.me/pirtechacc")); body.addView(telegram);
         body.addView(label(tr("О ПРИЛОЖЕНИИ","ABOUT")));
-        TextView version=text("MatrixWall Pro 2.1",14,true); version.setGravity(Gravity.CENTER); version.setOnClickListener(v->secretTap()); body.addView(version);
+        TextView version=text("MatrixWall Pro 2.3",14,true); version.setGravity(Gravity.CENTER); version.setOnClickListener(v->secretTap()); body.addView(version);
         int remaining=Math.max(0,7-prefs.getInt(Settings.KEY_SECRET_TAPS,0));
         if(!prefs.getBoolean(Settings.KEY_SECRET_UNLOCKED,false)) body.addView(text(tr("Секретная фигура: осталось нажатий — ","Secret shape: taps remaining — ")+remaining,12,false));
         else body.addView(text(tr("Секретная фигура разблокирована","Secret shape unlocked"),12,true));
@@ -231,6 +246,83 @@ public class MainActivity extends Activity {
         e.apply();
         Toast.makeText(this,tr("Пресет применён","Preset applied"),Toast.LENGTH_SHORT).show();
         showScreen();
+    }
+
+    private String serializeCurrentDesign() {
+        return "MWP1|"
+            + prefs.getInt(Settings.KEY_STYLE,0) + "|"
+            + prefs.getInt(Settings.KEY_COLOR,0) + "|"
+            + prefs.getInt(Settings.KEY_SHAPE,0) + "|"
+            + prefs.getInt(Settings.KEY_SIDE,0) + "|"
+            + prefs.getInt(Settings.KEY_ROTATION_SPEED,100) + "|"
+            + prefs.getInt(Settings.KEY_TEXT_SPEED,100) + "|"
+            + (prefs.getBoolean(Settings.KEY_RAIN,true) ? "1" : "0") + "|"
+            + (prefs.getBoolean(Settings.KEY_GLOW,true) ? "1" : "0");
+    }
+
+    private void applySerializedDesign(String code) {
+        try {
+            String[] p=code.trim().split("\\|");
+            if(p.length!=9 || !"MWP1".equals(p[0])) throw new IllegalArgumentException();
+            int style=Integer.parseInt(p[1]), color=Integer.parseInt(p[2]);
+            int shape=Integer.parseInt(p[3]), side=Integer.parseInt(p[4]);
+            int rotation=Integer.parseInt(p[5]), textSpeed=Integer.parseInt(p[6]);
+            if(style<0||style>=Settings.STYLE_NAMES.length||color<0||color>=Settings.COLOR_NAMES.length
+                ||shape<0||shape>=shapeNames().length||side<0||side>2
+                ||rotation<10||rotation>300||textSpeed<10||textSpeed>300
+                ||(!"0".equals(p[7])&&!"1".equals(p[7]))||(!"0".equals(p[8])&&!"1".equals(p[8])))
+                throw new IllegalArgumentException();
+            prefs.edit().putInt(Settings.KEY_STYLE,style).putInt(Settings.KEY_COLOR,color)
+                .putInt(Settings.KEY_SHAPE,shape).putInt(Settings.KEY_SIDE,side)
+                .putInt(Settings.KEY_ROTATION_SPEED,rotation).putInt(Settings.KEY_TEXT_SPEED,textSpeed)
+                .putBoolean(Settings.KEY_RAIN,"1".equals(p[7])).putBoolean(Settings.KEY_GLOW,"1".equals(p[8])).apply();
+            Toast.makeText(this,tr("Дизайн импортирован","Design imported"),Toast.LENGTH_SHORT).show();
+            showScreen();
+        } catch(Exception e) {
+            Toast.makeText(this,tr("Код дизайна неверный или несовместимый","Invalid or incompatible design code"),Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void shareCurrentDesign() {
+        String code=serializeCurrentDesign();
+        Intent send=new Intent(Intent.ACTION_SEND);
+        send.setType("text/plain");
+        send.putExtra(Intent.EXTRA_SUBJECT,"MatrixWall Pro design");
+        send.putExtra(Intent.EXTRA_TEXT,tr("Мой дизайн MatrixWall Pro. Скопируй код и импортируй его в приложении:","My MatrixWall Pro design. Copy this code and import it in the app:")+"\n"+code);
+        startActivity(Intent.createChooser(send,tr("Поделиться дизайном","Share design")));
+    }
+
+    private void showImportDesignDialog() {
+        EditText input=new EditText(this);
+        input.setSingleLine(true);
+        input.setInputType(InputType.TYPE_CLASS_TEXT);
+        input.setHint("MWP1|...");
+        new AlertDialog.Builder(this).setTitle(tr("Импорт дизайна","Import design"))
+            .setMessage(tr("Вставь код MWP1, который прислал другой пользователь.","Paste the MWP1 code another user shared."))
+            .setView(input).setNegativeButton(tr("Отмена","Cancel"),null)
+            .setPositiveButton(tr("Импортировать","Import"),(d,w)->applySerializedDesign(input.getText().toString())).show();
+    }
+
+    private void addCustomPresetButton(int slot) {
+        String key="custom_preset_"+slot;
+        String saved=prefs.getString(key,"");
+        Button b=button(tr("СЛОТ ","SLOT ")+(slot+1)+(saved.isEmpty()?tr(" — ПУСТО"," — EMPTY"):tr(" — СОХРАНЁН"," — SAVED")));
+        b.setOnClickListener(v->{
+            String current=prefs.getString(key,"");
+            if(current.isEmpty()) {
+                prefs.edit().putString(key,serializeCurrentDesign()).apply();
+                Toast.makeText(this,tr("Пресет сохранён","Preset saved"),Toast.LENGTH_SHORT).show();
+                showScreen();
+            } else {
+                new AlertDialog.Builder(this).setTitle(tr("Слот ","Slot ")+(slot+1))
+                    .setItems(new String[]{tr("Применить","Apply"),tr("Перезаписать текущим дизайном","Overwrite with current design"),tr("Удалить","Delete")},(d,which)->{
+                        if(which==0) applySerializedDesign(current);
+                        else if(which==1) {prefs.edit().putString(key,serializeCurrentDesign()).apply();showScreen();}
+                        else {prefs.edit().remove(key).apply();showScreen();}
+                    }).show();
+            }
+        });
+        body.addView(b);
     }
 
     private void randomizeDesign() {
