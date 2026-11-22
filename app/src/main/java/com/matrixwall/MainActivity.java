@@ -3,6 +3,8 @@ package com.matrixwall;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.WallpaperManager;
+import android.media.AudioManager;
+import android.media.ToneGenerator;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -12,7 +14,12 @@ import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.Gravity;
+import android.view.animation.AlphaAnimation;
+import android.view.animation.Animation;
+import android.widget.FrameLayout;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -170,8 +177,33 @@ public class MainActivity extends Activity {
     }
 
     private void showSplash() {
-        if(!prefs.getBoolean(Settings.KEY_SPLASH_SOUND,true))return;
-        // The existing Pro splash is retained by the launcher activity.
+        FrameLayout frame = new FrameLayout(this);
+        frame.addView(root, new FrameLayout.LayoutParams(-1, -1));
+        TextView logo = text("MATRIXWALL\\nPRO", 30, true);
+        logo.setGravity(Gravity.CENTER);
+        logo.setBackgroundColor(Color.BLACK);
+        frame.addView(logo, new FrameLayout.LayoutParams(-1, -1));
+        setContentView(frame);
+        AlphaAnimation fadeIn = new AlphaAnimation(0f, 1f);
+        fadeIn.setDuration(700);
+        logo.startAnimation(fadeIn);
+        if (prefs.getBoolean(Settings.KEY_SPLASH_SOUND, true)) {
+            try {
+                ToneGenerator tone = new ToneGenerator(AudioManager.STREAM_MUSIC, 45);
+                tone.startTone(ToneGenerator.TONE_PROP_ACK, 220);
+                new Handler(Looper.getMainLooper()).postDelayed(tone::release, 450);
+            } catch (Exception ignored) {}
+        }
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            AlphaAnimation fadeOut = new AlphaAnimation(1f, 0f);
+            fadeOut.setDuration(400);
+            fadeOut.setAnimationListener(new Animation.AnimationListener() {
+                public void onAnimationStart(Animation a) {}
+                public void onAnimationRepeat(Animation a) {}
+                public void onAnimationEnd(Animation a) { frame.removeView(logo); }
+            });
+            logo.startAnimation(fadeOut);
+        }, 1000);
     }
     private void applyWallpaper() {
         try { Intent i=new Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER);
