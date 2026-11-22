@@ -35,6 +35,15 @@ import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.ChildEventListener;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ServerValue;
+import java.util.HashMap;
+import java.util.Map;
 
 public class MainActivity extends Activity {
     private static final int GREEN = Color.rgb(0,255,65);
@@ -43,6 +52,14 @@ public class MainActivity extends Activity {
     private boolean settingsPage = false;
     private String lang = "ru";
     private int versionTapCount = 0;
+    private boolean chatPage = false;
+    private FirebaseAuth chatAuth;
+    private DatabaseReference chatMessagesRef;
+    private ChildEventListener chatListener;
+    private LinearLayout chatMessageList;
+    private ScrollView chatScroll;
+    private EditText chatInput;
+    private boolean chatLoading = false;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -65,8 +82,8 @@ public class MainActivity extends Activity {
         top.setPadding(dp(16),dp(12),dp(12),dp(8));
         TextView brand = text("MATRIXWALL PRO",20,true);
         top.addView(brand,new LinearLayout.LayoutParams(0,dp(48),1));
-        Button gear = button(settingsPage ? tr("ГЛАВНАЯ","HOME") : tr("НАСТРОЙКИ","SETTINGS"));
-        gear.setOnClickListener(v->{ settingsPage=!settingsPage; showScreen(); });
+        Button gear = button(chatPage || settingsPage ? tr("ГЛАВНАЯ","HOME") : tr("НАСТРОЙКИ","SETTINGS"));
+        gear.setOnClickListener(v->{ if(chatPage){chatPage=false;settingsPage=false;}else settingsPage=!settingsPage; showScreen(); });
         top.addView(gear,new LinearLayout.LayoutParams(dp(116),dp(46)));
         root.addView(top);
         ScrollView scroll = new ScrollView(this);
@@ -75,7 +92,7 @@ public class MainActivity extends Activity {
         body.setPadding(dp(18),dp(10),dp(18),dp(24));
         scroll.addView(body);
         root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
-        if(settingsPage) buildSettings(); else buildHome();
+        if(settingsPage) buildSettings(); else if(chatPage) buildChat(); else buildHome();
         setContentView(root);
         animateMenu();
     }
@@ -105,6 +122,10 @@ public class MainActivity extends Activity {
 
         Button apply=button(tr("УСТАНОВИТЬ ОБОИ","APPLY WALLPAPER"));
         apply.setOnClickListener(v->applyWallpaper()); body.addView(apply);
+
+        Button openChat=button(tr("ОТКРЫТЬ ОБЩИЙ ЧАТ","OPEN COMMUNITY CHAT"));
+        openChat.setOnClickListener(v->{settingsPage=false;chatPage=true;showScreen();});
+        body.addView(openChat);
 
         body.addView(label(tr("ОБМЕН ДИЗАЙНАМИ","DESIGN EXCHANGE")));
         body.addView(text(tr("Отправляй свой дизайн друзьям или вставляй код, который прислал другой пользователь.","Send your design to friends or paste a code shared by another user."),13,false));
@@ -454,6 +475,111 @@ public class MainActivity extends Activity {
             logo.startAnimation(fadeOut);
         }, 1000);
     }
+
+    private void buildChat() {
+        body.addView(text(tr("ОБЩИЙ ЧАТ MATRIXWALL","MATRIXWALL COMMUNITY CHAT"),20,true));
+        body.addView(text(tr("Общайся с другими пользователями. Не публикуй личные данные.","Chat with other users. Do not share personal information."),12,false));
+        Button changeNick=button(tr("ИЗМЕНИТЬ НИК","CHANGE NICKNAME"));
+        changeNick.setOnClickListener(v->askChatNickname()); body.addView(changeNick);
+        chatScroll=new ScrollView(this);
+        chatMessageList=new LinearLayout(this); chatMessageList.setOrientation(LinearLayout.VERTICAL);
+        chatMessageList.setPadding(dp(8),dp(8),dp(8),dp(8));
+        chatScroll.addView(chatMessageList);
+        LinearLayout.LayoutParams scrollParams=new LinearLayout.LayoutParams(-1,0,1);
+        scrollParams.topMargin=dp(10); scrollParams.bottomMargin=dp(8);
+        body.addView(chatScroll,scrollParams);
+        LinearLayout composer=new LinearLayout(this); composer.setGravity(Gravity.CENTER_VERTICAL);
+        chatInput=new EditText(this); chatInput.setSingleLine(true);
+        chatInput.setTextColor(GREEN); chatInput.setHintTextColor(Color.GRAY);
+        chatInput.setHint(tr("Сообщение...","Message..."));
+        chatInput.setBackgroundTintList(ColorStateList.valueOf(GREEN));
+        composer.addView(chatInput,new LinearLayout.LayoutParams(0,dp(52),1));
+        Button send=button(tr("ОТПРАВИТЬ","SEND"));
+        send.setOnClickListener(v->sendChatMessage());
+        composer.addView(send,new LinearLayout.LayoutParams(dp(112),dp(48)));
+        body.addView(composer);
+        startChatConnection();
+    }
+
+    private void askChatNickname() {
+        EditText input=new EditText(this); input.setSingleLine(true);
+        input.setMaxLines(1); input.setHint(tr("Например, MatrixFan","For example, MatrixFan"));
+        input.setText(prefs.getString("chat_nickname",""));
+        new AlertDialog.Builder(this).setTitle(tr("Твой ник в чате","Your chat nickname"))
+            .setMessage(tr("Используй вымышленный ник. Не указывай имя, телефон или другие личные данные.","Use a nickname. Do not enter your real name, phone number, or other personal information."))
+            .setView(input).setNegativeButton(tr("Отмена","Cancel"),null)
+            .setPositiveButton(tr("Сохранить","Save"),(d,w)->{
+                String nick=input.getText().toString().trim();
+                if(nick.length()<2||nick.length()>20){Toast.makeText(this,tr("Ник должен содержать от 2 до 20 символов","Nickname must be 2-20 characters"),Toast.LENGTH_LONG).show();return;}
+                nick=nick.replaceAll("[^\\p{L}\\p{N}_ -]","");
+                if(nick.length()<2){Toast.makeText(this,tr("Используй буквы или цифры","Use letters or numbers"),Toast.LENGTH_LONG).show();return;}
+                prefs.edit().putString("chat_nickname",nick).apply();
+                showScreen();
+            }).show();
+    }
+
+    private void startChatConnection() {
+        if(chatLoading)return;
+        if(prefs.getString("chat_nickname","").trim().length()<2){askChatNickname();return;}
+        chatLoading=true;
+        chatMessageList.addView(text(tr("Подключение к чату...","Connecting to chat..."),13,false));
+        chatAuth=FirebaseAuth.getInstance();
+        chatAuth.signInAnonymously().addOnCompleteListener(this,task->{
+            chatLoading=false;
+            if(!task.isSuccessful()){
+                showChatError(tr("Не удалось войти. Проверь Anonymous Authentication в Firebase.","Sign-in failed. Check Anonymous Authentication in Firebase."));
+                return;
+            }
+            chatMessagesRef=FirebaseDatabase.getInstance("https://matrixwall-chat-default-rtdb.firebaseio.com/")
+                .getReference("rooms").child("global").child("messages");
+            chatListener=new ChildEventListener(){
+                public void onChildAdded(DataSnapshot snap,String previous){
+                    String nick=snap.child("nickname").getValue(String.class);
+                    String message=snap.child("text").getValue(String.class);
+                    if(message==null||nick==null)return;
+                    TextView line=text(nick+": "+message,13,false);
+                    line.setPadding(dp(8),dp(7),dp(8),dp(7));
+                    line.setBackgroundColor(Color.rgb(18,28,18));
+                    LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2); lp.bottomMargin=dp(5);
+                    chatMessageList.addView(line,lp);
+                    chatScroll.post(()->chatScroll.fullScroll(View.FOCUS_DOWN));
+                }
+                public void onChildChanged(DataSnapshot snap,String previous){}
+                public void onChildRemoved(DataSnapshot snap){}
+                public void onChildMoved(DataSnapshot snap,String previous){}
+                public void onCancelled(DatabaseError error){showChatError(tr("Ошибка доступа к базе: ","Database access error: ")+error.getMessage());}
+            };
+            chatMessagesRef.limitToLast(100).addChildEventListener(chatListener);
+        });
+    }
+
+    private void showChatError(String message) {
+        if(chatMessageList!=null){chatMessageList.removeAllViews();chatMessageList.addView(text(message,13,true));}
+    }
+
+    private void sendChatMessage() {
+        if(chatMessagesRef==null||chatAuth==null||chatAuth.getCurrentUser()==null){
+            Toast.makeText(this,tr("Чат ещё подключается","Chat is still connecting"),Toast.LENGTH_SHORT).show();return;
+        }
+        String value=chatInput.getText().toString().trim();
+        if(value.isEmpty())return;
+        if(value.length()>500){Toast.makeText(this,tr("Максимум 500 символов","Maximum 500 characters"),Toast.LENGTH_SHORT).show();return;}
+        Map<String,Object> message=new HashMap<>();
+        message.put("uid",chatAuth.getCurrentUser().getUid());
+        message.put("nickname",prefs.getString("chat_nickname","User"));
+        message.put("text",value);
+        message.put("timestamp",ServerValue.TIMESTAMP);
+        chatMessagesRef.push().setValue(message).addOnCompleteListener(task->{
+            if(task.isSuccessful())chatInput.setText("");
+            else Toast.makeText(this,tr("Не удалось отправить сообщение. Проверь правила базы.","Message failed. Check database rules."),Toast.LENGTH_LONG).show();
+        });
+    }
+
+    @Override protected void onDestroy() {
+        if(chatMessagesRef!=null&&chatListener!=null)chatMessagesRef.removeEventListener(chatListener);
+        super.onDestroy();
+    }
+
     private void applyWallpaper() {
         try { Intent i=new Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER);
             i.putExtra(WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,new ComponentName(this,MatrixWallpaperService.class));startActivity(i);
