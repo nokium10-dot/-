@@ -56,6 +56,7 @@ public class MatrixWallpaperService extends WallpaperService {
         private int shapeMode = 0;
         private boolean rain = true;
         private boolean glow = true;
+        private boolean batterySaver = false;
         private int cr = 0, cg = 255, cb = 65, hr = 190, hg = 255, hb = 200;
         private float rotationSpeed = 1f, textSpeed = 1f;
 
@@ -119,6 +120,7 @@ public class MatrixWallpaperService extends WallpaperService {
             shapeMode = prefs.getInt(Settings.KEY_SHAPE, 0);
             rain = prefs.getBoolean(Settings.KEY_RAIN, true);
             glow = prefs.getBoolean(Settings.KEY_GLOW, true);
+            batterySaver = prefs.getBoolean(Settings.KEY_BATTERY_SAVER, false);
             if (shapeMode > 0 && shapeMode <= ShapeBank.COUNT) {
                 curShape = shapeMode - 1;
                 morphing = false;
@@ -193,7 +195,7 @@ public class MatrixWallpaperService extends WallpaperService {
                 }
             }
             handler.removeCallbacks(frame);
-            if (visible) handler.postDelayed(frame, 16);
+            if (visible) handler.postDelayed(frame, batterySaver ? 33 : 16);
         }
 
         private void update(float dt) {
