@@ -27,13 +27,11 @@ public class MainActivity extends Activity {
 
     private static final int GREEN = Color.rgb(0, 255, 65);
     private SharedPreferences prefs;
-    private boolean unlocked;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences(Settings.FILE, Context.MODE_PRIVATE);
-        unlocked = prefs.getBoolean(Settings.KEY_UNLOCKED, false);
 
         ScrollView scroll = new ScrollView(this);
         scroll.setBackgroundColor(Color.BLACK);
@@ -50,7 +48,7 @@ public class MainActivity extends Activity {
 
         root.addView(label("Стиль"));
         root.addView(radioGroup(Settings.STYLE_NAMES, Settings.KEY_STYLE, 0, 0,
-                Settings.FIRST_EXCLUSIVE_STYLE));
+                Settings.STYLE_NAMES.length));
 
         root.addView(label("Сторона"));
         root.addView(text("для стилей: Фигуры, Галактика, Тоннель", 12, false));
@@ -66,7 +64,7 @@ public class MainActivity extends Activity {
 
         root.addView(label("Цвет"));
         root.addView(radioGroup(Settings.COLOR_NAMES, Settings.KEY_COLOR, 0, 300,
-                Settings.FIRST_EXCLUSIVE_COLOR));
+                Settings.COLOR_NAMES.length));
 
         root.addView(label("Фон"));
         CheckBox rain = new CheckBox(this);
@@ -79,32 +77,15 @@ public class MainActivity extends Activity {
                 prefs.edit().putBoolean(Settings.KEY_RAIN, isChecked).apply());
         root.addView(rain);
 
-        root.addView(label("Эксклюзив"));
-        if (unlocked) {
-            root.addView(text("✓ Эксклюзивные обои и цвета открыты", 14, false));
-        } else {
-            final EditText code = new EditText(this);
-            code.setInputType(InputType.TYPE_CLASS_NUMBER);
-            code.setHint("Введите код");
-            code.setHintTextColor(Color.rgb(0, 120, 30));
-            code.setTextColor(GREEN);
-            code.setTypeface(Typeface.MONOSPACE);
-            code.setBackgroundTintList(ColorStateList.valueOf(GREEN));
-            root.addView(code);
+        root.addView(label("MATRIXWALL PRO"));
+        root.addView(text("Все стили, фигуры и цветовые темы доступны без кода.", 13, false));
 
-            Button open = greenButton("ОТКРЫТЬ ПО КОДУ", 48);
-            open.setOnClickListener(v -> {
-                String entered = code.getText().toString().trim();
-                if (entered.equals(Settings.UNLOCK_CODE)) {
-                    prefs.edit().putBoolean(Settings.KEY_UNLOCKED, true).apply();
-                    Toast.makeText(this, "Эксклюзив открыт!", Toast.LENGTH_SHORT).show();
-                    recreate();
-                } else {
-                    Toast.makeText(this, "Неверный код", Toast.LENGTH_SHORT).show();
-                }
-            });
-            root.addView(open);
-        }
+        Button tiktok = greenButton("TIKTOK  @PIRTECHACC", 48);
+        tiktok.setOnClickListener(v -> openLink("https://www.tiktok.com/@pirtechacc"));
+        root.addView(tiktok);
+        Button telegram = greenButton("TELEGRAM  @PIRTECHACC", 48);
+        telegram.setOnClickListener(v -> openLink("https://t.me/pirtechacc"));
+        root.addView(telegram);
 
         Button set = greenButton("УСТАНОВИТЬ ОБОИ", 56);
         ((LinearLayout.LayoutParams) set.getLayoutParams()).topMargin = dp(32);
@@ -133,11 +114,10 @@ public class MainActivity extends Activity {
         group.setOrientation(RadioGroup.VERTICAL);
         int saved = prefs.getInt(key, def);
         if (saved < 0 || saved >= items.length) saved = def;
-        if (!unlocked && saved >= firstLocked) saved = def;
         for (int i = 0; i < items.length; i++) {
             RadioButton rb = new RadioButton(this);
             rb.setId(1000 + idBase + i);
-            rb.setText((i >= firstLocked && !unlocked ? "🔒 " : "") + items[i]);
+            rb.setText(items[i]);
             rb.setTextColor(GREEN);
             rb.setTypeface(Typeface.MONOSPACE);
             rb.setButtonTintList(ColorStateList.valueOf(GREEN));
@@ -150,18 +130,18 @@ public class MainActivity extends Activity {
         group.setOnCheckedChangeListener((g, checkedId) -> {
             if (reverting[0]) return;
             int idx = checkedId - 1000 - idBase;
-            if (idx >= firstLocked && !unlocked) {
-                Toast.makeText(this, "Нужен код — раздел «Эксклюзив» ниже",
-                        Toast.LENGTH_SHORT).show();
-                reverting[0] = true;
-                g.check(1000 + idBase + current[0]);
-                reverting[0] = false;
-                return;
-            }
             current[0] = idx;
             prefs.edit().putInt(key, idx).apply();
         });
         return group;
+    }
+
+    private void openLink(String url) {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)));
+        } catch (Exception e) {
+            Toast.makeText(this, "Не удалось открыть ссылку", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void applyWallpaper() {
