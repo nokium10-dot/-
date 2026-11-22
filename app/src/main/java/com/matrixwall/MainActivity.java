@@ -262,7 +262,12 @@ public class MainActivity extends Activity {
 
     private void applySerializedDesign(String code) {
         try {
-            String[] p=code.trim().split("\\|");
+            String raw=code.trim();
+            int marker=raw.indexOf("MWP1|");
+            if(marker>=0) raw=raw.substring(marker);
+            int lineEnd=raw.indexOf('\\n');
+            if(lineEnd>=0) raw=raw.substring(0,lineEnd).trim();
+            String[] p=raw.split("\\|");
             if(p.length!=9 || !"MWP1".equals(p[0])) throw new IllegalArgumentException();
             int style=Integer.parseInt(p[1]), color=Integer.parseInt(p[2]);
             int shape=Integer.parseInt(p[3]), side=Integer.parseInt(p[4]);
