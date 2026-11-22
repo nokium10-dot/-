@@ -40,3 +40,5 @@ android {
         targetCompatibility JavaVersion.VERSION_1_8
     }
 }
+
+// Release build trigger: use the persistent signing key from GitHub Actions secrets.
