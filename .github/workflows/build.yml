@@ -1,5 +1,4 @@
 name: Build MatrixWall Pro APK
-# Retry Telegram delivery after latest chat ID update
 
 on:
   push:
@@ -11,7 +10,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -49,7 +48,7 @@ jobs:
       - name: Build debug APK (until signing secrets are configured)
         if: env.SIGNING_ENABLED != 'true'
         run: gradle assembleDebug --no-daemon --stacktrace
-      - name: Upload APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: MatrixWall-Pro-2.0-APK
@@ -58,12 +57,32 @@ jobs:
             app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
+      - name: Prepare APK for download
+        run: |
+          mkdir -p dist
+          if [ -f app/build/outputs/apk/release/app-release.apk ]; then
+            cp app/build/outputs/apk/release/app-release.apk dist/MatrixWall-Pro.apk
+          elif [ -f app/build/outputs/apk/debug/app-debug.apk ]; then
+            cp app/build/outputs/apk/debug/app-debug.apk dist/MatrixWall-Pro.apk
+          else
+            echo "No APK file found"
+            exit 1
+          fi
+      - name: Publish latest APK for Telegram bot
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: matrixwall-latest
+          name: MatrixWall Pro — latest build
+          body: Latest APK built by GitHub Actions. This release asset is replaced on each successful build.
+          files: dist/MatrixWall-Pro.apk
+          overwrite_files: true
+          fail_on_unmatched_files: true
+          token: ${{ github.token }}
       - name: Send Release APK to Telegram group
         if: success() && env.SIGNING_ENABLED == 'true'
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          VERSION_NAME: ${{ github.event.head_commit.message }}
         run: |
           if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
             echo "Telegram secrets are not configured; skipping group delivery."
