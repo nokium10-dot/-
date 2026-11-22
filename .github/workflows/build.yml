@@ -51,7 +51,7 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MatrixWall-Pro-2.0-APK
+          name: MatrixWall-Pro-2.1-APK
           path: |
             app/build/outputs/apk/release/app-release.apk
             app/build/outputs/apk/debug/app-debug.apk
@@ -91,5 +91,5 @@ jobs:
           curl --fail --silent --show-error \
             -F "chat_id=$TELEGRAM_CHAT_ID" \
             -F "document=@app/build/outputs/apk/release/app-release.apk" \
-            -F "caption=MatrixWall Pro 2.0 — новая Release-версия готова. Коммит: $GITHUB_SHA" \
+            -F "caption=MatrixWall Pro 2.1 — новая Release-версия готова. Коммит: $GITHUB_SHA" \
             "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendDocument"
