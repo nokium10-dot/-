@@ -7,22 +7,13 @@ final class Settings {
     static final String KEY_SHAPE = "shape";       // 0 авто, 1..5 конкретная фигура
     static final String KEY_COLOR = "color";       // цветовая тема
     static final String KEY_RAIN = "rain";         // фоновый дождь из символов
-    static final String KEY_UNLOCKED = "unlocked"; // открыт ли эксклюзив
-
-    static final String UNLOCK_CODE = "36376";
-
     static final String[] STYLE_NAMES = {
             "Фигуры", "Матрица", "Терминал", "Галактика",
             "Тоннель", "Волна"
     };
-    /** Стили с этого номера и выше доступны только по коду. */
-    static final int FIRST_EXCLUSIVE_STYLE = 4;
-
     static final String[] COLOR_NAMES = {
             "Зелёный", "Голубой", "Красный", "Янтарный", "Фиолетовый"
     };
-    /** Цвета с этого номера и выше доступны только по коду. */
-    static final int FIRST_EXCLUSIVE_COLOR = 2;
 
     /** {r, g, b, r светлый, g светлый, b светлый} */
     static final int[][] COLORS = {
