@@ -15,6 +15,7 @@ final class Settings {
     static final String KEY_SECRET_UNLOCKED = "secret_unlocked";
     static final String KEY_SECRET_TAPS = "secret_taps";
     static final String KEY_GLOW = "glow_effect";
+    static final String KEY_BATTERY_SAVER = "battery_saver";
 
     static final String[] STYLE_NAMES = {
         "Фигуры / Shapes", "Матрица / Matrix", "Терминал / Terminal", "Галактика / Galaxy",
