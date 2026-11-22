@@ -14,7 +14,7 @@ const BASE_URL = (process.env.AI_BASE_URL || "https://api.openai.com/v1").replac
 const MODEL = process.env.AI_MODEL || "gpt-4o-mini";
 const OWNER_ID = process.env.BOT_OWNER_ID ? Number(process.env.BOT_OWNER_ID) : null;
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
-const GITHUB_RELEASE_API = "https://api.github.com/repos/nokium10-dot/-/releases/tags/matrixwall-latest";
+const APK_DOWNLOAD_URL = "https://github.com/nokium10-dot/-/releases/download/matrixwall-latest/MatrixWall-Pro.apk";
 const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN);
 const app = express();
 
@@ -45,41 +45,30 @@ function splitMessage(text, limit = 3900) {
 async function sendLatestApk(ctx) {
   await ctx.replyWithChatAction("upload_document");
 
-  const releaseResponse = await fetch(GITHUB_RELEASE_API, {
-    headers: {
-      "Accept": "application/vnd.github+json",
-      "X-GitHub-Api-Version": "2022-11-28",
-      "User-Agent": "MatrixWall-Telegram-Bot"
-    }
+  // Download directly from the stable GitHub Release asset URL.
+  // This avoids the unauthenticated GitHub Releases API and its rate limits.
+  const apkResponse = await fetch(APK_DOWNLOAD_URL, {
+    headers: { "User-Agent": "MatrixWall-Telegram-Bot" },
+    redirect: "follow"
   });
 
-  if (releaseResponse.status === 404) {
+  if (apkResponse.status === 404) {
     await ctx.reply("Пока нет опубликованной сборки MatrixWall Pro. Попробуй ещё раз после завершения ближайшей сборки.");
     return;
   }
-  if (!releaseResponse.ok) {
-    throw new Error(`GitHub release lookup failed: HTTP ${releaseResponse.status}`);
-  }
-
-  const release = await releaseResponse.json();
-  const asset = release.assets?.find((item) => item.name === "MatrixWall-Pro.apk");
-  if (!asset || !asset.browser_download_url) {
-    await ctx.reply("Не нашёл APK в последней сборке. Возможно, публикация ещё не завершилась.");
-    return;
-  }
-
-  const apkResponse = await fetch(asset.browser_download_url, {
-    headers: { "User-Agent": "MatrixWall-Telegram-Bot" }
-  });
   if (!apkResponse.ok) {
     throw new Error(`APK download failed: HTTP ${apkResponse.status}`);
   }
 
   const apkBuffer = Buffer.from(await apkResponse.arrayBuffer());
+  if (apkBuffer.length < 1024) {
+    throw new Error("Downloaded APK is unexpectedly small");
+  }
+
   await ctx.replyWithDocument(
-    new InputFile(apkBuffer, asset.name),
+    new InputFile(apkBuffer, "MatrixWall-Pro.apk"),
     {
-      caption: `MatrixWall Pro — последняя версия\n${release.name || ""}\nРазмер: ${(apkBuffer.length / 1024 / 1024).toFixed(1)} МБ`,
+      caption: `MatrixWall Pro — последняя опубликованная версия\nРазмер: ${(apkBuffer.length / 1024 / 1024).toFixed(1)} МБ`,
       reply_parameters: { message_id: ctx.message.message_id }
     }
   );
