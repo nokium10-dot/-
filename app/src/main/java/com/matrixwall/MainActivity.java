@@ -10,12 +10,10 @@ import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.os.Bundle;
-import android.text.InputType;
 import android.view.Gravity;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.CheckBox;
-import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
@@ -47,24 +45,22 @@ public class MainActivity extends Activity {
         root.addView(text("Живые обои из зелёных символов", 14, false));
 
         root.addView(label("Стиль"));
-        root.addView(radioGroup(Settings.STYLE_NAMES, Settings.KEY_STYLE, 0, 0,
-                Settings.STYLE_NAMES.length));
+        root.addView(radioGroup(Settings.STYLE_NAMES, Settings.KEY_STYLE, 0, 0));
 
         root.addView(label("Сторона"));
         root.addView(text("для стилей: Фигуры, Галактика, Тоннель", 12, false));
         root.addView(radioGroup(new String[]{"Слева", "Справа", "Обе стороны"},
-                Settings.KEY_SIDE, 0, 100, 99));
+                Settings.KEY_SIDE, 0, 100));
 
         root.addView(label("Фигура"));
         root.addView(text("для стиля «Фигуры»", 12, false));
         String[] shapes = new String[ShapeBank.COUNT + 1];
         shapes[0] = "Авто (меняются сами)";
         for (int i = 0; i < ShapeBank.COUNT; i++) shapes[i + 1] = ShapeBank.NAMES[i];
-        root.addView(radioGroup(shapes, Settings.KEY_SHAPE, 0, 200, 99));
+        root.addView(radioGroup(shapes, Settings.KEY_SHAPE, 0, 200));
 
         root.addView(label("Цвет"));
-        root.addView(radioGroup(Settings.COLOR_NAMES, Settings.KEY_COLOR, 0, 300,
-                Settings.COLOR_NAMES.length));
+        root.addView(radioGroup(Settings.COLOR_NAMES, Settings.KEY_COLOR, 0, 300));
 
         root.addView(label("Фон"));
         CheckBox rain = new CheckBox(this);
@@ -109,7 +105,7 @@ public class MainActivity extends Activity {
     }
 
     private RadioGroup radioGroup(String[] items, final String key, int def,
-                                  final int idBase, final int firstLocked) {
+                                  final int idBase) {
         RadioGroup group = new RadioGroup(this);
         group.setOrientation(RadioGroup.VERTICAL);
         int saved = prefs.getInt(key, def);
@@ -126,9 +122,7 @@ public class MainActivity extends Activity {
         group.check(1000 + idBase + saved);
 
         final int[] current = {saved};
-        final boolean[] reverting = {false};
         group.setOnCheckedChangeListener((g, checkedId) -> {
-            if (reverting[0]) return;
             int idx = checkedId - 1000 - idBase;
             current[0] = idx;
             prefs.edit().putInt(key, idx).apply();
