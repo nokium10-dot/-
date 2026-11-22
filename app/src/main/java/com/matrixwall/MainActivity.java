@@ -23,6 +23,8 @@ import android.widget.FrameLayout;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.ImageView;
+import android.widget.ArrayAdapter;
 import android.widget.CheckBox;
 import android.widget.LinearLayout;
 import android.widget.RadioButton;
@@ -131,9 +133,13 @@ public class MainActivity extends Activity {
         body.addView(check(tr("Неоновое свечение фигур","Neon shape glow"),Settings.KEY_GLOW,true));
         body.addView(check(tr("Фоновый дождь символов","Background glyph rain"),Settings.KEY_RAIN,true));
         body.addView(check(tr("Звук заставки","Splash sound"),Settings.KEY_SPLASH_SOUND,true));
+        body.addView(check(tr("Экономия батареи (меньше кадров)","Battery saver (lower frame rate)"),Settings.KEY_BATTERY_SAVER,false));
+        Button reset=button(tr("СБРОСИТЬ НАСТРОЙКИ","RESET SETTINGS"));
+        reset.setOnClickListener(v->new AlertDialog.Builder(this).setTitle(tr("Сбросить все настройки?","Reset all settings?")).setMessage(tr("Настройки обоев вернутся к исходным значениям.","Wallpaper settings will return to defaults.")).setNegativeButton(tr("Отмена","Cancel"),null).setPositiveButton(tr("Сбросить","Reset"),(d,w)->{prefs.edit().clear().putString(Settings.KEY_LANGUAGE,lang).apply();Toast.makeText(this,tr("Настройки сброшены","Settings reset"),Toast.LENGTH_SHORT).show();showScreen();}).show());
+        body.addView(reset);
 
         body.addView(label(tr("ИКОНКА ПРИЛОЖЕНИЯ","APP ICON")));
-        String[] icons={"Matrix PRO 1","Matrix PRO 2","Matrix PRO 3","Matrix PRO 4","Matrix PRO 5","Matrix PRO 6","Matrix PRO 7","Matrix PRO 8","Matrix PRO 9","Matrix PRO 10"};
+        String[] icons=iconNames();
         body.addView(choiceButton(tr("Выбрать иконку","Choose app icon"),icons,Settings.KEY_ICON,0));
 
         body.addView(text(tr("Настройки сохраняются автоматически. Выбор обоев можно изменить в любой момент — все варианты открываются по нажатию на соответствующую кнопку.","Settings save automatically. Change your wallpaper at any time; each option opens when you tap its selector."),12,false));
@@ -147,18 +153,49 @@ public class MainActivity extends Activity {
         return shapes;
     }
 
+    private String[] iconNames() {
+        return new String[]{tr("Matrix Core","Matrix Core"),tr("Cyber Hex","Cyber Hex"),tr("Atom","Atom"),
+            tr("Cube","Cube"),tr("Lightning","Lightning"),tr("Eye","Eye"),tr("Orbit","Orbit"),
+            tr("Shield","Shield"),tr("Nova","Nova"),tr("Waveform","Waveform")};
+    }
+
     private Button choiceButton(String title,String[] options,String key,int def) {
         Button b=button("");
         refreshChoiceButton(b,title,options,key,def);
         b.setOnClickListener(v->{
             int current=prefs.getInt(key,def);
             if(current<0||current>=options.length) current=def;
-            new AlertDialog.Builder(this).setTitle(title).setSingleChoiceItems(options,current,(dialog,which)->{
-                prefs.edit().putInt(key,which).apply();
-                if(Settings.KEY_ICON.equals(key)) setLauncherIcon(which);
-                dialog.dismiss();
-                refreshChoiceButton(b,title,options,key,def);
-            }).setNegativeButton(tr("Отмена","Cancel"),null).show();
+            AlertDialog.Builder builder=new AlertDialog.Builder(this).setTitle(title);
+            if(Settings.KEY_ICON.equals(key)) {
+                ArrayAdapter<String> adapter=new ArrayAdapter<String>(this,0,options) {
+                    @Override public View getView(int position,View convertView,ViewGroup parent) {
+                        LinearLayout row=new LinearLayout(MainActivity.this);
+                        row.setGravity(Gravity.CENTER_VERTICAL);
+                        row.setPadding(dp(12),dp(8),dp(12),dp(8));
+                        ImageView preview=new ImageView(MainActivity.this);
+                        int res=getResources().getIdentifier("icon_"+(position+1),"drawable",getPackageName());
+                        if(res!=0) preview.setImageResource(res);
+                        row.addView(preview,new LinearLayout.LayoutParams(dp(58),dp(58)));
+                        TextView name=text(options[position],16,true);
+                        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-2,1);
+                        lp.leftMargin=dp(14); row.addView(name,lp);
+                        TextView marker=text(position==current?"✓":"",20,true);
+                        row.addView(marker);
+                        return row;
+                    }
+                };
+                builder.setAdapter(adapter,(dialog,which)->{
+                    prefs.edit().putInt(key,which).apply();
+                    setLauncherIcon(which); dialog.dismiss();
+                    refreshChoiceButton(b,title,options,key,def);
+                });
+            } else {
+                builder.setSingleChoiceItems(options,current,(dialog,which)->{
+                    prefs.edit().putInt(key,which).apply(); dialog.dismiss();
+                    refreshChoiceButton(b,title,options,key,def);
+                });
+            }
+            builder.setNegativeButton(tr("Отмена","Cancel"),null).show();
         });
         return b;
     }
