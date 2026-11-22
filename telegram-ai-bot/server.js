@@ -1,5 +1,5 @@
 const express = require("express");
-const { Bot } = require("grammy");
+const { Bot, InputFile } = require("grammy");
 
 const required = ["TELEGRAM_BOT_TOKEN", "OPENAI_API_KEY", "WEBHOOK_SECRET"];
 for (const name of required) {
@@ -14,6 +14,7 @@ const BASE_URL = (process.env.AI_BASE_URL || "https://api.openai.com/v1").replac
 const MODEL = process.env.AI_MODEL || "gpt-4o-mini";
 const OWNER_ID = process.env.BOT_OWNER_ID ? Number(process.env.BOT_OWNER_ID) : null;
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
+const GITHUB_RELEASE_API = "https://api.github.com/repos/nokium10-dot/-/releases/tags/matrixwall-latest";
 const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN);
 const app = express();
 
@@ -39,6 +40,49 @@ function splitMessage(text, limit = 3900) {
   }
   if (remaining) parts.push(remaining);
   return parts;
+}
+
+async function sendLatestApk(ctx) {
+  await ctx.replyWithChatAction("upload_document");
+
+  const releaseResponse = await fetch(GITHUB_RELEASE_API, {
+    headers: {
+      "Accept": "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      "User-Agent": "MatrixWall-Telegram-Bot"
+    }
+  });
+
+  if (releaseResponse.status === 404) {
+    await ctx.reply("Пока нет опубликованной сборки MatrixWall Pro. Попробуй ещё раз после завершения ближайшей сборки.");
+    return;
+  }
+  if (!releaseResponse.ok) {
+    throw new Error(`GitHub release lookup failed: HTTP ${releaseResponse.status}`);
+  }
+
+  const release = await releaseResponse.json();
+  const asset = release.assets?.find((item) => item.name === "MatrixWall-Pro.apk");
+  if (!asset || !asset.browser_download_url) {
+    await ctx.reply("Не нашёл APK в последней сборке. Возможно, публикация ещё не завершилась.");
+    return;
+  }
+
+  const apkResponse = await fetch(asset.browser_download_url, {
+    headers: { "User-Agent": "MatrixWall-Telegram-Bot" }
+  });
+  if (!apkResponse.ok) {
+    throw new Error(`APK download failed: HTTP ${apkResponse.status}`);
+  }
+
+  const apkBuffer = Buffer.from(await apkResponse.arrayBuffer());
+  await ctx.replyWithDocument(
+    new InputFile(apkBuffer, asset.name),
+    {
+      caption: `MatrixWall Pro — последняя версия\n${release.name || ""}\nРазмер: ${(apkBuffer.length / 1024 / 1024).toFixed(1)} МБ`,
+      reply_parameters: { message_id: ctx.message.message_id }
+    }
+  );
 }
 
 async function askAI(messages) {
@@ -70,8 +114,18 @@ async function askAI(messages) {
 
 bot.command("start", async (ctx) => {
   await ctx.reply(
-    "Привет! Я ИИ-помощник группы. Напиши /ask и свой вопрос. Команда /clear очистит только твою историю диалога."
+    "Привет! Я ИИ-помощник группы. Напиши /ask и свой вопрос. Команда /download отправит последнюю версию MatrixWall Pro, а /clear очистит только твою историю диалога."
   );
+});
+
+// Download the latest APK published by the GitHub Actions build.
+bot.command(["download", "apk"], async (ctx) => {
+  try {
+    await sendLatestApk(ctx);
+  } catch (error) {
+    console.error("APK delivery failed:", error.message);
+    await ctx.reply("Не удалось получить APK. Попробуй немного позже.");
+  }
 });
 
 bot.command("ask", async (ctx) => {
@@ -118,9 +172,8 @@ bot.command("clear", async (ctx) => {
 
 bot.command("ai_off", async (ctx) => {
   const isOwner = OWNER_ID && ctx.from.id === OWNER_ID;
-  const isAdmin = ctx.chat.type !== "private" &&
-    (await ctx.getChatMember(ctx.from.id).catch(() => null))?.status &&
-    ["administrator", "creator"].includes((await ctx.getChatMember(ctx.from.id).catch(() => null))?.status);
+  const member = ctx.chat.type !== "private" ? await ctx.getChatMember(ctx.from.id).catch(() => null) : null;
+  const isAdmin = member && ["administrator", "creator"].includes(member.status);
   if (!isOwner && !isAdmin) {
     await ctx.reply("Эта команда доступна только администратору группы.");
     return;
