@@ -98,15 +98,11 @@ public class MatrixWallpaperService extends WallpaperService {
         }
 
         private void loadPrefs() {
-            boolean unlocked = prefs.getBoolean(Settings.KEY_UNLOCKED, false);
-
             style = prefs.getInt(Settings.KEY_STYLE, 0);
             if (style < 0 || style >= Settings.STYLE_NAMES.length) style = 0;
-            if (!unlocked && style >= Settings.FIRST_EXCLUSIVE_STYLE) style = 0;
 
             int color = prefs.getInt(Settings.KEY_COLOR, 0);
             if (color < 0 || color >= Settings.COLORS.length) color = 0;
-            if (!unlocked && color >= Settings.FIRST_EXCLUSIVE_COLOR) color = 0;
             int[] t = Settings.COLORS[color];
             cr = t[0];
             cg = t[1];
@@ -192,7 +188,7 @@ public class MatrixWallpaperService extends WallpaperService {
                 }
             }
             handler.removeCallbacks(frame);
-            if (visible) handler.postDelayed(frame, 25);
+            if (visible) handler.postDelayed(frame, 16);
         }
 
         private void update(float dt) {
