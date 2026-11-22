@@ -167,6 +167,7 @@ public class MainActivity extends Activity {
             if(current<0||current>=options.length) current=def;
             AlertDialog.Builder builder=new AlertDialog.Builder(this).setTitle(title);
             if(Settings.KEY_ICON.equals(key)) {
+                final int selectedIndex=current;
                 ArrayAdapter<String> adapter=new ArrayAdapter<String>(this,0,options) {
                     @Override public View getView(int position,View convertView,ViewGroup parent) {
                         LinearLayout row=new LinearLayout(MainActivity.this);
@@ -179,7 +180,7 @@ public class MainActivity extends Activity {
                         TextView name=text(options[position],16,true);
                         LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-2,1);
                         lp.leftMargin=dp(14); row.addView(name,lp);
-                        TextView marker=text(position==current?"✓":"",20,true);
+                        TextView marker=text(position==selectedIndex?"✓":"",20,true);
                         row.addView(marker);
                         return row;
                     }
