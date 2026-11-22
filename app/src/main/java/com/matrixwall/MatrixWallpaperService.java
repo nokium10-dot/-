@@ -284,6 +284,13 @@ public class MatrixWallpaperService extends WallpaperService {
                 case 5:
                     drawWave(c);
                     break;
+                case 6:
+                    if (rain) drawRain(c, 0.18f);
+                    drawStarfield(c);
+                    break;
+                case 7:
+                    drawCodeGrid(c);
+                    break;
                 default:
                     if (rain) drawRain(c, 0.55f);
                     drawShapes(c);
