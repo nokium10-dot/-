@@ -164,6 +164,8 @@ const server = app.listen(PORT, async () => {
     return;
   }
   try {
+    await bot.init();
+    console.log(`Telegram bot initialized: @${bot.botInfo.username}`);
     await bot.api.setWebhook(`${publicUrl}/telegram/${WEBHOOK_SECRET}`, {
       secret_token: WEBHOOK_SECRET,
       allowed_updates: ["message"]
