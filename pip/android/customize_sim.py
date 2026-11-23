@@ -416,4 +416,11 @@ loader = r"""
 </script>
 """
 s = s.replace("</body>", footer + "\n" + loader + "\n</body>", 1)
+screen_hook = "  sctx.fill('evenodd');"
+screen_replacement = """  sctx.fill('evenodd');
+  if (window.PipMods && window.PipMods.drawScreen) window.PipMods.drawScreen(sctx, TEX, S);"""
+if screen_hook not in s:
+    raise SystemExit("Could not find screen render hook")
+s = s.replace(screen_hook, screen_replacement, 1)
+
 p.write_text(s, encoding="utf-8")
