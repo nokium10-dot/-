@@ -208,12 +208,12 @@ public class MainActivity extends Activity {
 
     static class Scene implements GLSurfaceView.Renderer {
         Scene(Activity a){host=a;}
-        int program,pos,normal,uv,color,mvp,tileLoc,textureLoc; int[] textures=new int[2]; FloatBuffer cube; Activity host;
+        int program,pos,normal,uv,color,mvp,tileLoc,textureLoc,detailLoc; int[] textures=new int[4]; FloatBuffer cube; Activity host;
         float[] proj=new float[16],view=new float[16],model=new float[16],vp=new float[16],out=new float[16];
         volatile float moveX=0,moveY=0; volatile int action=0; volatile boolean outside=false, riding=false;
         float x=0,y=1.62f,z=3.5f,yaw=0,pitch=0; long last=System.nanoTime(); float anim=0;
         final String vs="attribute vec3 aPos; attribute vec3 aNormal; attribute vec2 aUv; uniform mat4 uMvp; uniform vec2 uTile; varying float vLight; varying vec2 vUv; void main(){gl_Position=uMvp*vec4(aPos,1.0); float d=max(dot(normalize(aNormal),normalize(vec3(-0.35,0.82,0.44))),0.0); vLight=0.62+d*0.48; vUv=uTile+aUv*vec2(0.25,0.25);}";
-        final String fs="precision mediump float; uniform vec4 uColor; uniform sampler2D uTex; varying float vLight; varying vec2 vUv; void main(){vec3 tex=texture2D(uTex,vUv).rgb; gl_FragColor=vec4(uColor.rgb*(0.72+tex*0.38)*vLight,uColor.a);}";
+        final String fs="precision mediump float; uniform vec4 uColor; uniform sampler2D uTex; uniform sampler2D uDetailTex; varying float vLight; varying vec2 vUv; void main(){vec3 tex=texture2D(uTex,vUv).rgb; vec3 detail=texture2D(uDetailTex,vUv*3.0).rgb; gl_FragColor=vec4(uColor.rgb*(0.62+tex*0.27+detail*0.20)*vLight,uColor.a);}";
         final float[] vertices={
         -1,-1,-1,1,-1,-1,1,1,-1,-1,-1,-1,1,1,-1,-1,1,-1,
         -1,-1,1,1,1,1,1,-1,1,-1,-1,1,-1,1,1,1,1,1,
@@ -225,7 +225,7 @@ public class MainActivity extends Activity {
             GLES20.glClearColor(.035f,.065f,.095f,1);GLES20.glEnable(GLES20.GL_DEPTH_TEST);
             int v=shader(GLES20.GL_VERTEX_SHADER,vs),f=shader(GLES20.GL_FRAGMENT_SHADER,fs);
             program=GLES20.glCreateProgram();GLES20.glAttachShader(program,v);GLES20.glAttachShader(program,f);GLES20.glLinkProgram(program);
-            pos=GLES20.glGetAttribLocation(program,"aPos");normal=GLES20.glGetAttribLocation(program,"aNormal");uv=GLES20.glGetAttribLocation(program,"aUv");color=GLES20.glGetUniformLocation(program,"uColor");mvp=GLES20.glGetUniformLocation(program,"uMvp");tileLoc=GLES20.glGetUniformLocation(program,"uTile");textureLoc=GLES20.glGetUniformLocation(program,"uTex");
+            pos=GLES20.glGetAttribLocation(program,"aPos");normal=GLES20.glGetAttribLocation(program,"aNormal");uv=GLES20.glGetAttribLocation(program,"aUv");color=GLES20.glGetUniformLocation(program,"uColor");mvp=GLES20.glGetUniformLocation(program,"uMvp");tileLoc=GLES20.glGetUniformLocation(program,"uTile");textureLoc=GLES20.glGetUniformLocation(program,"uTex");detailLoc=GLES20.glGetUniformLocation(program,"uDetailTex");
             float[] lit=new float[(vertices.length/3)*8];
             for(int t=0;t<vertices.length/9;t++){
                 int q=t*9;float ax=vertices[q+3]-vertices[q],ay=vertices[q+4]-vertices[q+1],az=vertices[q+5]-vertices[q+2];
@@ -244,8 +244,8 @@ public class MainActivity extends Activity {
             return 3;
         }
         void loadTextures(){
-            GLES20.glGenTextures(2,textures,0);
-            String[] files={"workshop_atlas.png","city_atlas.png"};
+            GLES20.glGenTextures(4,textures,0);
+            String[] files={"workshop_atlas.png","city_atlas.png","workshop_detail.png","city_detail.png"};
             for(int i=0;i<2;i++)try{
                 java.io.InputStream in=host.getAssets().open(files[i]);
                 Bitmap bmp=BitmapFactory.decodeStream(in);in.close();
@@ -275,7 +275,7 @@ public class MainActivity extends Activity {
             Matrix.setIdentityM(model,0);Matrix.translateM(model,0,bx,by,bz);Matrix.rotateM(model,0,rot,0,1,0);Matrix.scaleM(model,0,sx,sy,sz);Matrix.multiplyMM(out,0,vp,0,model,0);
             GLES20.glUniformMatrix4fv(mvp,1,false,out,0);GLES20.glUniform4f(color,r,g,b,1);
             int tile=material(r,g,b);GLES20.glUniform2f(tileLoc,(tile%4)*.25f,(tile/4)*.25f);
-            GLES20.glActiveTexture(GLES20.GL_TEXTURE0);GLES20.glBindTexture(GLES20.GL_TEXTURE_2D,textures[outside?1:0]);GLES20.glUniform1i(textureLoc,0);
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE0);GLES20.glBindTexture(GLES20.GL_TEXTURE_2D,textures[outside?1:0]);GLES20.glUniform1i(textureLoc,0);GLES20.glActiveTexture(GLES20.GL_TEXTURE1);GLES20.glBindTexture(GLES20.GL_TEXTURE_2D,textures[outside?3:2]);GLES20.glUniform1i(detailLoc,1);
             cube.position(0);GLES20.glVertexAttribPointer(pos,3,GLES20.GL_FLOAT,false,32,cube);GLES20.glEnableVertexAttribArray(pos);
             cube.position(3);GLES20.glVertexAttribPointer(normal,3,GLES20.GL_FLOAT,false,32,cube);GLES20.glEnableVertexAttribArray(normal);
             cube.position(6);GLES20.glVertexAttribPointer(uv,2,GLES20.GL_FLOAT,false,32,cube);GLES20.glEnableVertexAttribArray(uv);
