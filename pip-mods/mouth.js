@@ -2,65 +2,121 @@
   const id='mouth';
   if(!window.PipMods||window.PipMods.has(id))return;
   window.PipMods.register(id,()=>{
-    let current={open:.12,width:.19,curve:.2,kind:'smile'},from={...current},target={...current},changed=0;
-    let lastMood='neutral',lastTime=performance.now();
+    let current={open:.06,width:.43,curve:.2,round:.5,kind:'smile'};
+    let from={...current},target={...current},changed=0,lastMood='neutral',lastTime=performance.now();
     const profiles={
-      happy:{open:.24,width:.205,curve:.72,kind:'smile'},love:{open:.28,width:.205,curve:.82,kind:'smile'},
-      content:{open:.18,width:.20,curve:.68,kind:'smile'},comfy:{open:.12,width:.19,curve:.48,kind:'smile'},
-      cheeky:{open:.16,width:.195,curve:.82,kind:'smile'},smug:{open:.09,width:.18,curve:.7,kind:'smile'},
-      sad:{open:.07,width:.18,curve:-.62,kind:'frown'},gloomy:{open:.05,width:.17,curve:-.68,kind:'frown'},
-      lonely:{open:.05,width:.17,curve:-.55,kind:'frown'},despondent:{open:.04,width:.16,curve:-.7,kind:'frown'},
-      hurt:{open:.12,width:.18,curve:-.35,kind:'frown'},afraid:{open:.26,width:.15,curve:0,kind:'oval'},
-      surprised:{open:.38,width:.12,curve:0,kind:'oval'},shocked:{open:.42,width:.13,curve:0,kind:'oval'},
-      amazed:{open:.32,width:.15,curve:0,kind:'oval'},angry:{open:.08,width:.18,curve:-.12,kind:'flat'},
-      furious:{open:.12,width:.19,curve:-.2,kind:'flat'},rage:{open:.13,width:.19,curve:-.2,kind:'flat'},
-      annoyed:{open:.05,width:.17,curve:-.12,kind:'flat'},asleep:{open:.025,width:.16,curve:.12,kind:'sleep'},
-      sleepy:{open:.04,width:.17,curve:.18,kind:'sleep'},tired:{open:.035,width:.16,curve:.1,kind:'sleep'},
-      curious:{open:.14,width:.13,curve:0,kind:'oval'},puzzled:{open:.13,width:.14,curve:0,kind:'oval'},
-      skeptical:{open:.06,width:.16,curve:-.08,kind:'flat'},
-      stoned:{open:.12,width:.18,curve:.35,kind:'smile'},pinkeye:{open:.05,width:.16,curve:-.2,kind:'flat'},
-      nauseous:{open:.08,width:.16,curve:-.4,kind:'flat'},sick:{open:.06,width:.16,curve:-.45,kind:'frown'},
-      exhausted:{open:.02,width:.15,curve:.08,kind:'sleep'},annoyed:{open:.05,width:.17,curve:-.12,kind:'flat'},
-      belligerent:{open:.1,width:.18,curve:-.25,kind:'flat'},swearing:{open:.25,width:.17,curve:-.1,kind:'oval'},
-      indignant:{open:.11,width:.17,curve:-.22,kind:'flat'},disgusted:{open:.06,width:.17,curve:-.38,kind:'frown'},
-      suspicious:{open:.04,width:.15,curve:-.1,kind:'flat'},cynical:{open:.07,width:.18,curve:.42,kind:'smile'},
-      nervous:{open:.18,width:.13,curve:0,kind:'oval'},dull:{open:.025,width:.15,curve:.08,kind:'sleep'},
-      shy:{open:.08,width:.17,curve:.55,kind:'smile'},dismayed:{open:.14,width:.15,curve:-.5,kind:'frown'},
-      yes:{open:.16,width:.19,curve:.65,kind:'smile'},no:{open:.06,width:.16,curve:-.2,kind:'flat'},
-      neutral:{open:.045,width:.17,curve:.24,kind:'smile'}
+      happy:{open:.14,width:.46,curve:.9,round:.55,kind:'smile'},
+      love:{open:.16,width:.44,curve:1,round:.62,kind:'smile'},
+      content:{open:.11,width:.43,curve:.72,round:.5,kind:'smile'},
+      comfy:{open:.07,width:.40,curve:.52,round:.48,kind:'smile'},
+      cheeky:{open:.12,width:.43,curve:1.05,round:.42,kind:'smile'},
+      smug:{open:.055,width:.39,curve:.7,round:.34,kind:'smile'},
+      sad:{open:.07,width:.40,curve:-.78,round:.4,kind:'frown'},
+      gloomy:{open:.055,width:.38,curve:-.86,round:.38,kind:'frown'},
+      lonely:{open:.05,width:.37,curve:-.7,round:.4,kind:'frown'},
+      despondent:{open:.045,width:.36,curve:-.88,round:.38,kind:'frown'},
+      hurt:{open:.09,width:.40,curve:-.48,round:.48,kind:'frown'},
+      afraid:{open:.22,width:.27,curve:0,round:.9,kind:'oval'},
+      surprised:{open:.32,width:.25,curve:0,round:1,kind:'oval'},
+      shocked:{open:.36,width:.28,curve:0,round:1,kind:'oval'},
+      amazed:{open:.27,width:.30,curve:0,round:.95,kind:'oval'},
+      angry:{open:.08,width:.41,curve:-.12,round:.28,kind:'flat'},
+      furious:{open:.1,width:.43,curve:-.2,round:.25,kind:'flat'},
+      rage:{open:.12,width:.43,curve:-.24,round:.25,kind:'flat'},
+      annoyed:{open:.06,width:.38,curve:-.12,round:.25,kind:'flat'},
+      asleep:{open:.035,width:.34,curve:.18,round:.25,kind:'sleep'},
+      sleepy:{open:.045,width:.37,curve:.2,round:.28,kind:'sleep'},
+      tired:{open:.04,width:.36,curve:.12,round:.25,kind:'sleep'},
+      curious:{open:.16,width:.25,curve:0,round:.85,kind:'oval'},
+      puzzled:{open:.14,width:.27,curve:0,round:.82,kind:'oval'},
+      skeptical:{open:.06,width:.37,curve:-.1,round:.3,kind:'flat'},
+      stoned:{open:.1,width:.41,curve:.38,round:.58,kind:'smile'},
+      pinkeye:{open:.05,width:.36,curve:-.2,round:.3,kind:'flat'},
+      nauseous:{open:.07,width:.38,curve:-.4,round:.35,kind:'frown'},
+      sick:{open:.06,width:.37,curve:-.5,round:.38,kind:'frown'},
+      exhausted:{open:.025,width:.34,curve:.08,round:.25,kind:'sleep'},
+      belligerent:{open:.1,width:.4,curve:-.25,round:.3,kind:'flat'},
+      swearing:{open:.23,width:.34,curve:0,round:.9,kind:'oval'},
+      indignant:{open:.1,width:.38,curve:-.22,round:.3,kind:'flat'},
+      disgusted:{open:.06,width:.38,curve:-.42,round:.38,kind:'frown'},
+      suspicious:{open:.045,width:.35,curve:-.12,round:.28,kind:'flat'},
+      cynical:{open:.07,width:.4,curve:.46,round:.36,kind:'smile'},
+      nervous:{open:.16,width:.27,curve:0,round:.9,kind:'oval'},
+      dull:{open:.025,width:.34,curve:.08,round:.25,kind:'sleep'},
+      shy:{open:.075,width:.39,curve:.58,round:.46,kind:'smile'},
+      dismayed:{open:.12,width:.33,curve:-.58,round:.8,kind:'oval'},
+      yes:{open:.13,width:.43,curve:.78,round:.48,kind:'smile'},
+      no:{open:.06,width:.37,curve:-.2,round:.28,kind:'flat'},
+      neutral:{open:.055,width:.39,curve:.18,round:.35,kind:'flat'}
     };
+
+    const readStatus=core=>{
+      try{return JSON.parse(core.UTF8ToString(core._sim_status()));}catch(_){return{};}
+    };
+
     const draw=(ctx,size,off,core)=>{
       const now=performance.now(),dt=Math.min(.05,(now-lastTime)/1000);lastTime=now;
-      let mood='neutral';
-      try{mood=JSON.parse(core.UTF8ToString(core._sim_status())).mood||mood;}catch(_){}
-      if(mood!==lastMood){from={...current};target={...(profiles[mood]||profiles.neutral)};changed=now;lastMood=mood;}
-      const p=Math.min(1,(now-changed)/360),ease=1-Math.pow(1-p,3);
-      current.open=from.open+(target.open-from.open)*ease;
-      current.width=from.width+(target.width-from.width)*ease;
-      current.curve=from.curve+(target.curve-from.curve)*ease;
+      const status=readStatus(core);
+      // The native simulator reports "menu", "pip", or the active app ID.
+      // Keep the mouth on the face only, never over the native menu/apps.
+      if(status.screen && status.screen!=='pip')return;
+      if(document.getElementById('pip-actions-sheet')?.classList.contains('open') ||
+         document.getElementById('pip-settings')?.classList.contains('open') ||
+         document.getElementById('pip-mod-panel')?.classList.contains('open')) return;
+
+      const mood=status.mood||'neutral';
+      if(mood!==lastMood){
+        from={...current};target={...(profiles[mood]||profiles.neutral)};
+        changed=now;lastMood=mood;
+      }
+      const p=Math.min(1,(now-changed)/420),ease=1-Math.pow(1-p,3);
+      for(const k of ['open','width','curve','round'])current[k]=from[k]+(target[k]-from[k])*ease;
       current.kind=target.kind;
-      const cx=off+size*.5,cy=off+size*.705,w=size*.333,h=size*(.025+current.open*.10);
-      const pulse=(mood==='love'||mood==='happy')?1+Math.sin(now/230)*.025:1;
-      ctx.save();ctx.translate(cx,cy);ctx.scale(pulse,1);ctx.lineCap='round';ctx.lineJoin='round';
-      ctx.shadowColor='rgba(18,4,12,.55)';ctx.shadowBlur=size*.008;
-      ctx.strokeStyle='#ffffff';ctx.lineWidth=Math.max(2,size*.006);
+
+      // Subtle organic motion, like the softly wobbling white eye shapes.
+      const energy=(mood==='happy'||mood==='love'||mood==='curious')?1:.45;
+      const wobble=Math.sin(now/185)*.012*energy+Math.sin(now/337)*.006;
+      const breathe=1+Math.sin(now/520)*.012;
+      const cx=off+size*(.5+Math.sin(now/680)*.002);
+      const cy=off+size*(.718+Math.sin(now/430)*.003);
+      const w=size*current.width*breathe;
+      const h=size*(.055+current.open*.22);
+      const curve=current.curve+wobble*18;
+      const round=Math.max(.18,Math.min(1,current.round));
+      ctx.save();
+      ctx.translate(cx,cy);
+      ctx.rotate(Math.sin(now/720)*.008);
+      ctx.scale(1+wobble,1-wobble*.35);
+      ctx.fillStyle='#ffffff';
+      ctx.shadowColor='rgba(255,255,255,.12)';
+      ctx.shadowBlur=size*.004;
+
+      // Every expression is a single solid-white silhouette: no outline,
+      // teeth, inner strokes, or coloured details.
       if(current.kind==='oval'){
-        ctx.beginPath();ctx.ellipse(0,0,w*.34,h*.78,0,0,Math.PI*2);
-        ctx.fillStyle='#ffffff';ctx.fill();ctx.stroke();
-        ctx.beginPath();ctx.ellipse(0,-h*.1,w*.22,h*.24,0,Math.PI,Math.PI*2);ctx.fillStyle='#ffffff';ctx.fill();
+        const ow=w*(.34+current.open*.35);
+        const oh=h*(.65+current.open*.8);
+        ctx.beginPath();
+        ctx.ellipse(0,0,ow,oh,Math.sin(now/510)*.025,0,Math.PI*2);
+        ctx.fill();
       }else if(current.kind==='sleep'){
-        ctx.beginPath();ctx.moveTo(-w/2,0);ctx.quadraticCurveTo(0,h*.35,w/2,0);ctx.strokeStyle='#ffffff';ctx.lineWidth=Math.max(2,size*.008);ctx.stroke();
-      }else if(current.kind==='flat'){
-        ctx.beginPath();ctx.moveTo(-w/2,0);ctx.quadraticCurveTo(0,h*current.curve,w/2,0);ctx.strokeStyle='#ffffff';ctx.lineWidth=Math.max(2.5,size*.009);ctx.stroke();
-        if(mood==='angry'||mood==='furious'||mood==='rage'){ctx.beginPath();ctx.moveTo(-w*.12,-h*.12);ctx.lineTo(-w*.02,h*.05);ctx.lineTo(w*.08,-h*.1);ctx.strokeStyle='#ffffff';ctx.lineWidth=Math.max(1.5,size*.004);ctx.stroke();}
+        const sh=size*(.012+current.open*.035);
+        ctx.beginPath();
+        ctx.moveTo(-w*.46,0);
+        ctx.bezierCurveTo(-w*.22,sh*1.3,w*.22,sh*1.3,w*.46,0);
+        ctx.quadraticCurveTo(0,sh*.6,-w*.46,0);
+        ctx.fill();
       }else{
-        ctx.beginPath();ctx.moveTo(-w/2,0);ctx.bezierCurveTo(-w*.27,h*(.85+current.curve),w*.27,h*(.85+current.curve),w/2,0);
-        ctx.strokeStyle='#ffffff';ctx.lineWidth=Math.max(2.5,size*.009);ctx.stroke();
-        if(current.open>.16){
-          ctx.beginPath();ctx.moveTo(-w*.32,h*.12);ctx.quadraticCurveTo(0,h*(.9+current.open),w*.32,h*.12);ctx.closePath();
-          ctx.fillStyle='#ffffff';ctx.fill();
-          ctx.beginPath();ctx.moveTo(-w*.23,h*.17);ctx.quadraticCurveTo(0,h*.32,w*.23,h*.17);ctx.strokeStyle='#ffffff';ctx.lineWidth=Math.max(1.5,size*.004);ctx.stroke();
-        }
+        const depth=h*(.36+round*.42);
+        const edge=h*(.08+round*.16);
+        const sign=current.kind==='frown'?-1:1;
+        const center=sign*depth;
+        ctx.beginPath();
+        ctx.moveTo(-w*.5,0);
+        ctx.bezierCurveTo(-w*.34,center+edge,w*.34,center+edge,w*.5,0);
+        ctx.bezierCurveTo(w*.34,center+edge+h*.22,-w*.34,center+edge+h*.22,-w*.5,0);
+        ctx.closePath();
+        ctx.fill();
       }
       ctx.restore();
     };
