@@ -1,9 +1,10 @@
-name: Build MatrixWall Pro APK
+name: Build MatrixWall and Pip APKs
 
 on:
   push:
     paths:
       - 'app/**'
+      - 'pip/**'
       - 'build.gradle'
       - 'settings.gradle'
       - '.github/workflows/build.yml'
@@ -18,17 +19,49 @@ jobs:
     env:
       SIGNING_ENABLED: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
     steps:
-      - name: Checkout
+      - name: Checkout Android repository
         uses: actions/checkout@v4
+
+      - name: Checkout official Pip-KeyPet source
+        uses: actions/checkout@v4
+        with:
+          repository: NovikovVisuals/Pip-KeyPet
+          ref: main
+          path: pip-src
+          submodules: recursive
+
+      - name: Set up Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+
+      - name: Set up Node.js for the simulator renderer
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build the original Pip simulator and package its runtime
+        run: |
+          emcmake cmake -S pip-src/sim -B pip-src/build-web -G Ninja
+          cmake --build pip-src/build-web --parallel
+          npm install --prefix /tmp/pip-web three@0.170.0
+          mkdir -p pip/src/main/assets/pip/three/addons
+          cp pip-src/sim/web/index.html pip/src/main/assets/pip/index.html
+          cp pip-src/sim/web/pip.js pip/src/main/assets/pip/pip.js
+          cp pip-src/sim/web/pip.wasm pip/src/main/assets/pip/pip.wasm
+          cp /tmp/pip-web/node_modules/three/build/three.module.js pip/src/main/assets/pip/three.module.js
+          cp -R /tmp/pip-web/node_modules/three/examples/jsm/. pip/src/main/assets/pip/three/addons/
+          sed -i 's#https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js#./three.module.js#g; s#https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/#./three/addons/#g' pip/src/main/assets/pip/index.html
+
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+
       - name: Prepare persistent signing key (optional)
         if: env.SIGNING_ENABLED == 'true'
         env:
@@ -42,54 +75,52 @@ jobs:
           echo "ANDROID_KEYSTORE_PASSWORD=$ANDROID_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
           echo "ANDROID_KEY_ALIAS=$ANDROID_KEY_ALIAS" >> "$GITHUB_ENV"
           echo "ANDROID_KEY_PASSWORD=$ANDROID_KEY_PASSWORD" >> "$GITHUB_ENV"
-      - name: Build signed release APK
+
+      - name: Build signed release APKs
         if: env.SIGNING_ENABLED == 'true'
         run: gradle assembleRelease --no-daemon --stacktrace
-      - name: Build debug APK (until signing secrets are configured)
+
+      - name: Build debug APKs (until signing secrets are configured)
         if: env.SIGNING_ENABLED != 'true'
         run: gradle assembleDebug --no-daemon --stacktrace
-      - name: Upload APK artifact
+
+      - name: Upload APK artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: MatrixWall-Pro-2.4-APK
+          name: MatrixWall-and-Pip-APKs
           path: |
             app/build/outputs/apk/release/app-release.apk
             app/build/outputs/apk/debug/app-debug.apk
+            pip/build/outputs/apk/release/pip-release.apk
+            pip/build/outputs/apk/debug/pip-debug.apk
           if-no-files-found: error
           retention-days: 30
-      - name: Prepare APK for download
+
+      - name: Prepare APKs for release
         run: |
           mkdir -p dist
           if [ -f app/build/outputs/apk/release/app-release.apk ]; then
             cp app/build/outputs/apk/release/app-release.apk dist/MatrixWall-Pro.apk
-          elif [ -f app/build/outputs/apk/debug/app-debug.apk ]; then
-            cp app/build/outputs/apk/debug/app-debug.apk dist/MatrixWall-Pro.apk
           else
-            echo "No APK file found"
-            exit 1
+            cp app/build/outputs/apk/debug/app-debug.apk dist/MatrixWall-Pro.apk
           fi
-      - name: Publish latest APK for Telegram bot
+          if [ -f pip/build/outputs/apk/release/pip-release.apk ]; then
+            cp pip/build/outputs/apk/release/pip-release.apk dist/Pip-KeyPet.apk
+          else
+            cp pip/build/outputs/apk/debug/pip-debug.apk dist/Pip-KeyPet.apk
+          fi
+
+      - name: Publish latest APKs
         uses: softprops/action-gh-release@v2
         with:
           tag_name: matrixwall-latest
-          name: MatrixWall Pro — latest build
-          body: Latest APK built by GitHub Actions. This release asset is replaced on each successful build.
-          files: dist/MatrixWall-Pro.apk
+          name: MatrixWall Pro + Пип — latest builds
+          body: |
+            Latest Android builds produced by GitHub Actions.
+            Pip is packaged from the official NovikovVisuals/Pip-KeyPet simulator and adapted for Android.
+          files: |
+            dist/MatrixWall-Pro.apk
+            dist/Pip-KeyPet.apk
           overwrite_files: true
           fail_on_unmatched_files: true
           token: ${{ github.token }}
-      - name: Send Release APK to Telegram group
-        if: success() && env.SIGNING_ENABLED == 'true'
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: |
-          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
-            echo "Telegram secrets are not configured; skipping group delivery."
-            exit 0
-          fi
-          curl --fail --silent --show-error \
-            -F "chat_id=$TELEGRAM_CHAT_ID" \
-            -F "document=@app/build/outputs/apk/release/app-release.apk" \
-            -F "caption=MatrixWall Pro 2.4 — новая Release-версия готова. Коммит: $GITHUB_SHA" \
-            "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendDocument"
