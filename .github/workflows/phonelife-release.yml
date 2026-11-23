@@ -45,7 +45,7 @@ jobs:
           test -n "$AAPT"
           "$AAPT" dump badging "$APK" | tee /tmp/phone-life-badging.txt
           grep -q "name='com.phonelife.sim'" /tmp/phone-life-badging.txt
-          grep -q "versionName='1.1.0'" /tmp/phone-life-badging.txt
+          grep -q "versionName='1.2.0'" /tmp/phone-life-badging.txt
           echo "Validated APK size: $(stat -c%s "$APK") bytes"
 
       - name: Upload build artifact
