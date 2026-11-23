@@ -32,7 +32,7 @@ tasks.register('generatePhoneLifeTextures') {
             int tile = size / 4
             def image = new java.awt.image.BufferedImage(size, size, java.awt.image.BufferedImage.TYPE_INT_RGB)
             def random = new java.util.Random(seed)
-            int[][] bases = city ?
+            def bases = city ?
                 [[104,91,76],[76,82,88],[139,132,119],[48,52,55],[58,112,139],[58,102,61],[116,104,88],[15,39,53]] :
                 [[119,77,43],[90,101,111],[137,139,132],[66,70,72],[52,139,164],[56,119,67],[151,133,105],[12,48,66]]
             for (int y=0; y<size; y++) {
