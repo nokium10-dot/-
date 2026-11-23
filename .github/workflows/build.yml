@@ -86,6 +86,9 @@ jobs:
         if: env.SIGNING_ENABLED != 'true'
         run: gradle assembleDebug --no-daemon --stacktrace
 
+      - name: Build installable PhoneLife APK (debug-signed)
+        run: gradle :phonelife:assembleDebug --no-daemon --stacktrace
+
       - name: Upload APK artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -113,9 +116,9 @@ jobs:
           else
             cp pip/build/outputs/apk/debug/pip-debug.apk dist/Pip-KeyPet.apk
           fi
-          PHONE_LIFE_APK="$(find phonelife/build/outputs/apk -type f -name '*.apk' 2>/dev/null | sort | head -n 1)"
-          if [ -z "$PHONE_LIFE_APK" ]; then
-            echo "PhoneLife APK was not produced. Contents of build/outputs:"
+          PHONE_LIFE_APK="phonelife/build/outputs/apk/debug/phonelife-debug.apk"
+          if [ ! -s "$PHONE_LIFE_APK" ]; then
+            echo "Installable PhoneLife debug APK was not produced."
             find phonelife/build/outputs -maxdepth 5 -type f -print || true
             exit 1
           fi
