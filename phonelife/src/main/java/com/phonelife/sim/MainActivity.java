@@ -207,12 +207,12 @@ public class MainActivity extends Activity {
     }
 
     static class Scene implements GLSurfaceView.Renderer {
-        int program,pos,color,mvp; FloatBuffer cube;
+        int program,pos,normal,color,mvp; FloatBuffer cube;
         float[] proj=new float[16],view=new float[16],model=new float[16],vp=new float[16],out=new float[16];
         volatile float moveX=0,moveY=0; volatile int action=0; volatile boolean outside=false, riding=false;
         float x=0,y=1.62f,z=3.5f,yaw=0,pitch=0; long last=System.nanoTime(); float anim=0;
-        final String vs="attribute vec4 aPos; uniform mat4 uMvp; void main(){gl_Position=uMvp*aPos;}";
-        final String fs="precision mediump float; uniform vec4 uColor; void main(){gl_FragColor=uColor;}";
+        final String vs="attribute vec3 aPos; attribute vec3 aNormal; uniform mat4 uMvp; varying float vLight; void main(){gl_Position=uMvp*vec4(aPos,1.0); float d=max(dot(normalize(aNormal),normalize(vec3(-0.35,0.82,0.44))),0.0); vLight=0.58+d*0.52;}";
+        final String fs="precision mediump float; uniform vec4 uColor; varying float vLight; void main(){gl_FragColor=vec4(uColor.rgb*vLight,uColor.a);}";
         final float[] vertices={
         -1,-1,-1,1,-1,-1,1,1,-1,-1,-1,-1,1,1,-1,-1,1,-1,
         -1,-1,1,1,1,1,1,-1,1,-1,-1,1,-1,1,1,1,1,1,
@@ -224,8 +224,15 @@ public class MainActivity extends Activity {
             GLES20.glClearColor(.035f,.065f,.095f,1);GLES20.glEnable(GLES20.GL_DEPTH_TEST);
             int v=shader(GLES20.GL_VERTEX_SHADER,vs),f=shader(GLES20.GL_FRAGMENT_SHADER,fs);
             program=GLES20.glCreateProgram();GLES20.glAttachShader(program,v);GLES20.glAttachShader(program,f);GLES20.glLinkProgram(program);
-            pos=GLES20.glGetAttribLocation(program,"aPos");color=GLES20.glGetUniformLocation(program,"uColor");mvp=GLES20.glGetUniformLocation(program,"uMvp");
-            ByteBuffer bb=ByteBuffer.allocateDirect(vertices.length*4).order(ByteOrder.nativeOrder());cube=bb.asFloatBuffer();cube.put(vertices).position(0);
+            pos=GLES20.glGetAttribLocation(program,"aPos");normal=GLES20.glGetAttribLocation(program,"aNormal");color=GLES20.glGetUniformLocation(program,"uColor");mvp=GLES20.glGetUniformLocation(program,"uMvp");
+            float[] lit=new float[(vertices.length/3)*6];
+            for(int t=0;t<vertices.length/9;t++){
+                int q=t*9;float ax=vertices[q+3]-vertices[q],ay=vertices[q+4]-vertices[q+1],az=vertices[q+5]-vertices[q+2];
+                float bx=vertices[q+6]-vertices[q],by=vertices[q+7]-vertices[q+1],bz=vertices[q+8]-vertices[q+2];
+                float nx=ay*bz-az*by,ny=az*bx-ax*bz,nz=ax*by-ay*bx;float nl=(float)Math.sqrt(nx*nx+ny*ny+nz*nz);if(nl<.0001f)nl=1;nx/=nl;ny/=nl;nz/=nl;
+                for(int k=0;k<3;k++){int src=q+k*3,dst=(t*3+k)*6;lit[dst]=vertices[src];lit[dst+1]=vertices[src+1];lit[dst+2]=vertices[src+2];lit[dst+3]=nx;lit[dst+4]=ny;lit[dst+5]=nz;}
+            }
+            ByteBuffer bb=ByteBuffer.allocateDirect(lit.length*4).order(ByteOrder.nativeOrder());cube=bb.asFloatBuffer();cube.put(lit).position(0);
         }
         int shader(int type,String src){int s=GLES20.glCreateShader(type);GLES20.glShaderSource(s,src);GLES20.glCompileShader(s);return s;}
         @Override public void onSurfaceChanged(GL10 gl,int w,int h){GLES20.glViewport(0,0,w,h);Matrix.perspectiveM(proj,0,70,(float)w/Math.max(1,h),.08f,100f);}
@@ -242,7 +249,10 @@ public class MainActivity extends Activity {
         String targetHint(){String t=target();if("bench".equals(t))return "ВЕРСТАК · собрать или проверить смартфон";if("shelf".equals(t))return "СТЕЛЛАЖ · купить телефоны и комплектующие";if("customer".equals(t))return "КЛИЕНТ · поговорить и продать готовый телефон";if("door".equals(t))return outside?"ВОЗВРАЩЕНИЕ · мастерская":"ВЫХОД · улица и поездка";if("scooter".equals(t))return "САМОКАТ · сесть и поехать";if("vendor".equals(t))return "ТОРГОВЕЦ · редкие детали";return "Осмотрись: найди верстак, стеллаж и клиента.";}
         void box(float bx,float by,float bz,float sx,float sy,float sz,float rot,float r,float g,float b){
             Matrix.setIdentityM(model,0);Matrix.translateM(model,0,bx,by,bz);Matrix.rotateM(model,0,rot,0,1,0);Matrix.scaleM(model,0,sx,sy,sz);Matrix.multiplyMM(out,0,vp,0,model,0);
-            GLES20.glUniformMatrix4fv(mvp,1,false,out,0);GLES20.glUniform4f(color,r,g,b,1);cube.position(0);GLES20.glVertexAttribPointer(pos,3,GLES20.GL_FLOAT,false,0,cube);GLES20.glEnableVertexAttribArray(pos);GLES20.glDrawArrays(GLES20.GL_TRIANGLES,0,36);
+            GLES20.glUniformMatrix4fv(mvp,1,false,out,0);GLES20.glUniform4f(color,r,g,b,1);
+            cube.position(0);GLES20.glVertexAttribPointer(pos,3,GLES20.GL_FLOAT,false,24,cube);GLES20.glEnableVertexAttribArray(pos);
+            cube.position(3);GLES20.glVertexAttribPointer(normal,3,GLES20.GL_FLOAT,false,24,cube);GLES20.glEnableVertexAttribArray(normal);
+            GLES20.glDrawArrays(GLES20.GL_TRIANGLES,0,36);
         }
         void phone(float px,float py,float pz,float scale,float tint){
             box(px,py,pz,.32f*scale,.62f*scale,.055f*scale,0,.035f,.045f,.055f);
