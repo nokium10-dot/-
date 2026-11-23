@@ -108,10 +108,15 @@ public class MainActivity extends Activity {
             if(usedPhones>0 && parts>0){
                 usedPhones--; parts--; finishedPhones++; money+=900; reputation++;
                 game.setAction(1);
-                Toast.makeText(this,"Ты собрал телефон! Проверь экран и корпус.",Toast.LENGTH_SHORT).show();
+                Toast.makeText(this,"Телефон собран и прошёл базовую проверку. +₽900",Toast.LENGTH_SHORT).show();
                 if(storyStep<2) storyStep=2;
+            } else if(orders>0 && parts>0){
+                orders--; parts--; money+=1600; reputation+=2; day++;
+                game.setAction(1);
+                Toast.makeText(this,"Заказ на ремонт выполнен. Клиент оплатил ₽1 600.",Toast.LENGTH_LONG).show();
             } else if(usedPhones>0) Toast.makeText(this,"Не хватает деталей. Загляни в магазин.",Toast.LENGTH_SHORT).show();
-            else Toast.makeText(this,"Сначала купи подержанный телефон и детали.",Toast.LENGTH_SHORT).show();
+            else if(orders>0) Toast.makeText(this,"Для ремонта нужен набор деталей. Купи его в магазине.",Toast.LENGTH_SHORT).show();
+            else Toast.makeText(this,"Сначала купи подержанный телефон или возьми заказ на ремонт.",Toast.LENGTH_SHORT).show();
         } else if("customer".equals(target)){
             if(finishedPhones>0){finishedPhones--;money+=6500;reputation+=2;game.setAction(2);Toast.makeText(this,"Клиент доволен. +₽6 500",Toast.LENGTH_SHORT).show();storyStep=Math.max(storyStep,3);}
             else Toast.makeText(this,"Клиент: «Ищу хороший восстановленный смартфон». Сначала собери один.",Toast.LENGTH_LONG).show();
