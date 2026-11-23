@@ -127,7 +127,51 @@ css = """
     #pip-moods-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
   }
 """
-s = s.replace("</style>", css + "\n</style>", 1)
+s = s.replace("
+  /* Pip Glass 2.0: fluid sheets, tactile controls and compact game cards */
+  #pip-actions-sheet, #pip-mod-panel {
+    transform-origin:50% 100%;
+    will-change:transform,opacity,filter;
+  }
+  #pip-actions-sheet.open { display:block; animation:pip-sheet-in 480ms cubic-bezier(.18,.88,.22,1.12) both; }
+  #pip-actions-sheet.closing { display:block; pointer-events:none; animation:pip-sheet-out 230ms cubic-bezier(.4,0,1,1) both; }
+  #pip-mod-panel.open { display:block; animation:pip-panel-in 430ms cubic-bezier(.18,.88,.22,1.08) both; }
+  @keyframes pip-sheet-in {
+    from { opacity:0; transform:translateY(42px) scale(.97); filter:blur(10px); }
+    72% { opacity:1; transform:translateY(-3px) scale(1.006); filter:blur(0); }
+    to { opacity:1; transform:translateY(0) scale(1); filter:blur(0); }
+  }
+  @keyframes pip-sheet-out { to { opacity:0; transform:translateY(24px) scale(.985); filter:blur(6px); } }
+  @keyframes pip-panel-in {
+    from { opacity:0; transform:translateY(24px) scale(.975); filter:blur(8px); }
+    to { opacity:1; transform:translateY(0) scale(1); filter:blur(0); }
+  }
+  #pip-actions-sheet .action-grid button, #pip-actions-sheet #pip-moods-grid button,
+  #pip-actions-sheet .game-card button {
+    transition:transform .22s cubic-bezier(.2,.8,.2,1), background .22s ease, border-color .22s ease;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 5px 16px rgba(0,0,0,.16);
+  }
+  #pip-actions-sheet button:active { transform:scale(.94); }
+  #pip-actions-sheet .game-card {
+    margin-top:10px; padding:14px; border-radius:19px;
+    border:1px solid rgba(190,207,255,.22);
+    background:linear-gradient(145deg,rgba(255,255,255,.105),rgba(255,255,255,.025));
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 12px 30px rgba(0,0,0,.18);
+    backdrop-filter:blur(20px);
+  }
+  #pip-actions-sheet .game-card strong { display:block; color:#f4f6ff; font-size:14px; margin-bottom:5px; }
+  #pip-actions-sheet .game-card p { color:#aebbd9; font-size:11px; line-height:1.4; margin:0 0 10px; }
+  #pip-actions-sheet .game-card button { min-height:38px; padding:0 12px; border-radius:12px; }
+  #pip-game-status { min-height:18px; color:#c5d4f5; font-size:12px; margin-top:9px; }
+  #pip-game-choices { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:6px; margin-top:8px; }
+  #pip-game-choices button { min-width:0; padding:0; }
+  #pip-actions-trigger { transition:transform .28s cubic-bezier(.2,.8,.2,1),box-shadow .28s ease; }
+  #pip-actions-trigger:active { transform:translateX(-50%) scale(.91); }
+  @media (prefers-reduced-motion:reduce) {
+    #pip-actions-sheet.open,#pip-actions-sheet.closing,#pip-mod-panel.open,#pip-settings.open,#pip-settings.closing { animation-duration:1ms !important; }
+  }
+
+</style>", css + "\n</style>", 1)
 
 markup = """
 
@@ -181,6 +225,23 @@ markup = """
   </div>
   <div class="section-title">Эмоции</div>
   <div id="pip-moods-grid"></div>
+
+  <div class="section-title">Игры с Пипом</div>
+  <div class="game-card">
+    <strong>⚡ Проверка реакции</strong>
+    <p>Нажми «Старт», дождись сигнала и коснись кнопки как можно быстрее.</p>
+    <button id="pip-game-reaction">Начать игру</button>
+    <button id="pip-game-tap" disabled>Жду сигнал…</button>
+    <div id="pip-game-status">Рекорд: —</div>
+  </div>
+  <div class="game-card">
+    <strong>🎲 Угадай число</strong>
+    <p>Я загадал число от 1 до 5. Попробуй угадать!</p>
+    <button id="pip-game-number-start">Загадать число</button>
+    <div id="pip-game-choices"></div>
+    <div id="pip-number-status">Готов сыграть?</div>
+  </div>
+  <button id="pip-say-to-pip" style="width:100%;margin-top:10px;">🎙 Сказать Пипу</button>
 </section>
 """
 s = s.replace('<div id="panel">', markup + '\n<div id="panel">', 1)
@@ -344,6 +405,73 @@ footer = """
 })();
 </script>
 """
+gameScript = r"""
+<script>
+(() => {
+  const say = text => { try { if(window.PipAndroid && window.PipAndroid.speak) window.PipAndroid.speak(text); } catch(_){} };
+  const tap = document.getElementById('pip-game-tap');
+  const status = document.getElementById('pip-game-status');
+  const start = document.getElementById('pip-game-reaction');
+  let timer = 0, started = 0, waiting = false, active = false;
+  let best = Number(localStorage.getItem('pip.game.reaction.best') || 0);
+  if(status) status.textContent = 'Рекорд: ' + (best ? best + ' мс' : '—');
+  start?.addEventListener('click', () => {
+    clearTimeout(timer); waiting = true; active = false;
+    tap.disabled = true; tap.textContent = 'Жди зелёный сигнал…';
+    status.textContent = 'Не нажимай раньше времени!';
+    say('Внимание. Приготовились!');
+    timer = setTimeout(() => {
+      waiting = false; active = true; started = performance.now();
+      tap.disabled = false; tap.textContent = 'ЖМИ!';
+      tap.style.background = 'linear-gradient(135deg,#1b735d,#123d36)';
+      say('Сейчас!');
+    }, 1400 + Math.random() * 2600);
+  });
+  tap?.addEventListener('click', () => {
+    if(!active) {
+      if(waiting) { clearTimeout(timer); waiting = false; tap.disabled = true; tap.textContent = 'Слишком рано'; status.textContent = 'Поторопился! Попробуй ещё раз.'; say('Эй, фальстарт! Давай ещё раз.'); }
+      return;
+    }
+    active = false; const ms = Math.round(performance.now() - started);
+    tap.disabled = true; tap.textContent = ms + ' мс';
+    if(!best || ms < best) { best = ms; localStorage.setItem('pip.game.reaction.best',String(best)); }
+    status.textContent = 'Результат: ' + ms + ' мс · Рекорд: ' + best + ' мс';
+    say(ms < 280 ? 'Невероятно быстро! Ты молния!' : ms < 450 ? 'Хорошая реакция!' : 'Неплохо. В следующий раз будет быстрее!');
+  });
+  const numberStart=document.getElementById('pip-game-number-start');
+  const choices=document.getElementById('pip-game-choices');
+  const numberStatus=document.getElementById('pip-number-status');
+  let secret=0, attempts=0;
+  numberStart?.addEventListener('click',()=>{
+    secret=1+Math.floor(Math.random()*5);attempts=0;
+    numberStatus.textContent='Число загадано. Твой ход!';
+    choices.replaceChildren();
+    for(let n=1;n<=5;n++){
+      const b=document.createElement('button');b.textContent=String(n);
+      b.addEventListener('click',()=>{
+        attempts++;
+        if(n===secret){numberStatus.textContent='Верно! Попыток: '+attempts+'. Сыграем ещё?';say('Угадал! Отличная работа!');choices.replaceChildren();}
+        else {numberStatus.textContent=n<secret?'Моё число больше.':'Моё число меньше.';say(n<secret?'Чуть выше!':'Чуть ниже!');}
+      });
+      choices.append(b);
+    }
+    say('Я загадал число. Попробуй угадать!');
+  });
+  document.getElementById('pip-say-to-pip')?.addEventListener('click',()=>{
+    if(window.PipAndroid && window.PipAndroid.listen) window.PipAndroid.listen();
+    else say('Голосовой ввод пока недоступен.');
+  });
+  const speakById={
+    'pip-action-feed':'О, вкусняшка! Спасибо, я как раз проголодался.',
+    'pip-action-play':'Ура, время играть! Не подведи меня!',
+    'pip-action-pet':'Вот это приятно. Могу так весь день.',
+    'pip-action-poke':'Ой! Я тут вообще-то занят важными делами.'
+  };
+  Object.entries(speakById).forEach(([id,line])=>document.getElementById(id)?.addEventListener('click',()=>say(line)));
+  document.querySelectorAll('#pip-moods-grid button').forEach(b=>b.addEventListener('click',()=>say('Настроение переключено. Вот теперь другое дело!')));
+})();
+</script>
+"""
 loader = r"""
 <script>
 (() => {
@@ -485,7 +613,7 @@ loader = r"""
 })();
 </script>
 """
-s = s.replace("</body>", footer + "\n" + loader + "\n</body>", 1)
+s = s.replace("</body>", footer + "\n" + gameScript + "\n" + loader + "\n</body>", 1)
 screen_hook = "  sctx.fill('evenodd');"
 screen_replacement = """  sctx.fill('evenodd');
   if (window.PipMods && window.PipMods.drawScreen) window.PipMods.drawScreen(sctx, TEX, S);"""
