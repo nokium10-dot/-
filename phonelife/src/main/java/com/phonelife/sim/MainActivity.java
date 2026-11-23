@@ -51,26 +51,25 @@ public class MainActivity extends Activity {
         LinearLayout left=new LinearLayout(this); left.setOrientation(LinearLayout.VERTICAL); left.setPadding(10,8,10,8);
         left.setGravity(Gravity.CENTER);
         MovePad pad=new MovePad(this,(x,y)->game.setMove(x,y));
-        left.addView(pad,new LinearLayout.LayoutParams(150,130));
-        FrameLayout.LayoutParams lp=new FrameLayout.LayoutParams(170,150,Gravity.BOTTOM|Gravity.LEFT);
-        lp.setMargins(12,0,0,12); root.addView(left,lp);
+        int padSize=dp(190);
+        left.addView(pad,new LinearLayout.LayoutParams(padSize,padSize));
+        FrameLayout.LayoutParams lp=new FrameLayout.LayoutParams(dp(205),dp(205),Gravity.BOTTOM|Gravity.LEFT);
+        lp.setMargins(dp(12),0,0,dp(16)); root.addView(left,lp);
 
         LinearLayout right=new LinearLayout(this); right.setOrientation(LinearLayout.VERTICAL); right.setGravity(Gravity.BOTTOM|Gravity.RIGHT);
-        Button act=makeButton("ДЕЙСТВИЕ",0xFFDB9B45); right.addView(act);
-        act.setOnClickListener(v->interact());
-        Button shop=makeButton("МАГАЗИН",0xFF247B91); right.addView(shop);
-        shop.setOnClickListener(v->openShop());
-        Button bag=makeButton("РЮКЗАК",0xFF315D83); right.addView(bag);
-        bag.setOnClickListener(v->openInventory());
-        Button tasks=makeButton("ИСТОРИЯ",0xFF46556F); right.addView(tasks);
-        tasks.setOnClickListener(v->showStory());
-        FrameLayout.LayoutParams rp=new FrameLayout.LayoutParams(160,-2,Gravity.BOTTOM|Gravity.RIGHT);
-        rp.setMargins(0,0,14,12); root.addView(right,rp);
+        Button act=makeButton("E  ·  ДЕЙСТВИЕ",0xFFDB9B45); right.addView(act); act.setOnClickListener(v->interact());
+        Button shop=makeButton("M  ·  МАГАЗИН",0xFF247B91); right.addView(shop); shop.setOnClickListener(v->openShop());
+        Button bag=makeButton("I  ·  РЮКЗАК",0xFF315D83); right.addView(bag); bag.setOnClickListener(v->openInventory());
+        Button tasks=makeButton("J  ·  ЗАДАНИЯ",0xFF46556F); right.addView(tasks); tasks.setOnClickListener(v->showStory());
+        Button settings=makeButton("⚙  НАСТРОЙКИ",0xFF52616B); right.addView(settings); settings.setOnClickListener(v->showSettings());
+        FrameLayout.LayoutParams rp=new FrameLayout.LayoutParams(dp(174),-2,Gravity.BOTTOM|Gravity.RIGHT);
+        rp.setMargins(0,0,dp(14),dp(14)); root.addView(right,rp);
 
-        TextView hint=new TextView(this); hint.setText("ЛЕВАЯ СТОРОНА — ХОДЬБА   •   ПРОВЕДИ ПО ЭКРАНУ — ОБЗОР");
-        hint.setTextColor(0xAAFFFFFF); hint.setTextSize(10); hint.setGravity(Gravity.CENTER);
-        FrameLayout.LayoutParams htp=new FrameLayout.LayoutParams(-1,28,Gravity.BOTTOM|Gravity.CENTER_HORIZONTAL);
-        htp.bottomMargin=8; root.addView(hint,htp);
+        TextView hint=new TextView(this); hint.setText("ДЖОЙСТИК — ДВИЖЕНИЕ     ПРАВАЯ ЧАСТЬ ЭКРАНА — ОБЗОР КАМЕРЫ");
+        hint.setTextColor(0xE6FFFFFF); hint.setTextSize(11); hint.setTypeface(null,1); hint.setGravity(Gravity.CENTER);
+        hint.setBackgroundColor(0x77101928);
+        FrameLayout.LayoutParams htp=new FrameLayout.LayoutParams(-1,dp(30),Gravity.BOTTOM|Gravity.CENTER_HORIZONTAL);
+        htp.bottomMargin=dp(3); root.addView(hint,htp);
         game.setOnTouchListener((v,e)->{
             if(e.getX()<getResources().getDisplayMetrics().widthPixels*.38f) return false;
             if(e.getAction()==MotionEvent.ACTION_DOWN){game.lookStart(e.getX(),e.getY());return true;}
@@ -88,10 +87,12 @@ public class MainActivity extends Activity {
     @Override protected void onPause(){saveGame();super.onPause();}
     @Override protected void onStop(){saveGame();super.onStop();}
 
+    private int dp(float v){return (int)(v*getResources().getDisplayMetrics().density+.5f);}
     private Button makeButton(String text,int color){
-        Button b=new Button(this); b.setText(text); b.setTextSize(11); b.setAllCaps(false); b.setTextColor(Color.WHITE);
+        Button b=new Button(this); b.setText(text); b.setTextSize(12); b.setTypeface(null,1); b.setAllCaps(false); b.setTextColor(Color.WHITE);
+        b.setMinHeight(dp(52)); b.setPadding(dp(8),0,dp(8),0);
         b.setBackgroundTintList(ColorStateList.valueOf(color));
-        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,48); p.setMargins(3,3,3,3); b.setLayoutParams(p);
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,dp(56)); p.setMargins(dp(3),dp(3),dp(3),dp(3)); b.setLayoutParams(p);
         return b;
     }
     private void updateHud(){
@@ -176,12 +177,17 @@ public class MainActivity extends Activity {
     interface MoveListener { void move(float x,float y); }
     static class MovePad extends View {
         Paint p=new Paint(3); MoveListener listener; float cx,cy,dx,dy; boolean active;
-        MovePad(Activity a,MoveListener l){super(a);listener=l;}
-        @Override protected void onDraw(Canvas c){super.onDraw(c);float x=getWidth()/2f,y=getHeight()/2f,r=52;
-            p.setColor(0x55334455);c.drawCircle(x,y,r,p);p.setColor(0xAA7FB8D2);c.drawCircle(active?x+dx:x,active?y+dy:y,24,p);
-            p.setColor(0x99FFFFFF);p.setTextSize(10);c.drawText("MOVE",x-15,y+r+16,p);}
+        MovePad(Activity a,MoveListener l){super(a);listener=l;setLayerType(View.LAYER_TYPE_SOFTWARE,null);}
+        @Override protected void onDraw(Canvas c){super.onDraw(c);float x=getWidth()/2f,y=getHeight()/2f,r=Math.min(getWidth(),getHeight())*.43f;
+            p.setStyle(Paint.Style.FILL);p.setColor(0x66334455);c.drawCircle(x,y,r,p);
+            p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(3);p.setColor(0x99D9F2FF);c.drawCircle(x,y,r,p);
+            p.setStyle(Paint.Style.FILL);p.setColor(0x447FB8D2);c.drawCircle(x,y,r*.57f,p);
+            float k=r*.40f;p.setColor(0xDD7FB8D2);c.drawCircle(active?x+dx:x,active?y+dy:y,k,p);
+            p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(3);p.setColor(0xFFFFFFFF);c.drawCircle(active?x+dx:x,active?y+dy:y,k,p);
+            p.setStyle(Paint.Style.FILL);p.setColor(0xCCFFFFFF);p.setTextSize(12);p.setTypeface(Typeface.DEFAULT_BOLD);c.drawText("ХОДЬБА",x-25,y+r+18,p);
+        }
         @Override public boolean onTouchEvent(MotionEvent e){float x=e.getX()-getWidth()/2f,y=e.getY()-getHeight()/2f;
-            if(e.getAction()==MotionEvent.ACTION_DOWN||e.getAction()==MotionEvent.ACTION_MOVE){active=true;float n=(float)Math.sqrt(x*x+y*y);float max=48;if(n>max){x=x/n*max;y=y/n*max;}dx=x;dy=y;listener.move(x/max,-y/max);invalidate();return true;}
+            if(e.getAction()==MotionEvent.ACTION_DOWN||e.getAction()==MotionEvent.ACTION_MOVE){active=true;float n=(float)Math.sqrt(x*x+y*y);float max=Math.min(getWidth(),getHeight())*.34f;if(n>max){x=x/n*max;y=y/n*max;}dx=x;dy=y;listener.move(x/max,-y/max);invalidate();return true;}
             active=false;dx=dy=0;listener.move(0,0);invalidate();return true;}
     }
 
@@ -191,7 +197,7 @@ public class MainActivity extends Activity {
         GameView(Activity a){super(a);setEGLContextClientVersion(2);scene=new Scene();setRenderer(scene);setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);}
         void setMove(float x,float y){scene.moveX=x;scene.moveY=y;}
         void lookStart(float x,float y){lastX=x;lastY=y;}
-        void lookMove(float x,float y){float dx=x-lastX,dy=y-lastY;lastX=x;lastY=y;scene.turn(dx*.22f,dy*.18f);}
+        void lookMove(float x,float y){float dx=x-lastX,dy=y-lastY;lastX=x;lastY=y;scene.turn(dx*.16f,dy*.13f);}
         void lookEnd(){}
         String getTarget(){return scene.target();}
         String getTargetHint(){return scene.targetHint();}
