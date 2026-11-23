@@ -54,6 +54,7 @@ public final class PipActivity extends Activity {
 
         webView = new WebView(this);
         webView.setBackgroundColor(Color.BLACK);
+        webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
         webView.getSettings().setJavaScriptEnabled(true);
         webView.getSettings().setDomStorageEnabled(true);
         webView.getSettings().setDatabaseEnabled(true);
