@@ -259,6 +259,12 @@ public class MainActivity extends Activity {
             box(px,py,pz+.058f*scale,.285f*scale,.57f*scale,.012f*scale,0,.10f,.48f*tint,.68f*tint);
             box(px,py+.49f*scale,pz+.073f*scale,.07f*scale,.018f*scale,.01f,0,.01f,.02f,.025f);
             box(px-.22f*scale,py+.47f*scale,pz+.03f*scale,.045f*scale,.06f*scale,.035f*scale,0,.12f,.13f,.15f);
+            box(px-.19f*scale,py+.50f*scale,pz-.058f*scale,.075f*scale,.075f*scale,.012f*scale,0,.035f,.045f,.055f);
+            box(px-.19f*scale,py+.50f*scale,pz-.071f*scale,.028f*scale,.028f*scale,.008f*scale,0,.12f,.18f,.22f);
+            box(px-.09f*scale,py+.50f*scale,pz-.071f*scale,.025f*scale,.025f*scale,.008f*scale,0,.12f,.18f,.22f);
+            box(px+.33f*scale,py+.23f*scale,pz,.018f*scale,.12f*scale,.025f*scale,0,.16f,.18f,.2f);
+            box(px+.33f*scale,py-.02f*scale,pz,.018f*scale,.07f*scale,.025f*scale,0,.16f,.18f,.2f);
+            box(px,py-.55f*scale,pz+.068f*scale,.07f*scale,.012f*scale,.008f*scale,0,.02f,.03f,.04f);
         }
         @Override public void onDrawFrame(GL10 gl){
             long now=System.nanoTime();float dt=Math.min(.05f,(now-last)/1e9f);last=now;anim+=dt;
@@ -283,14 +289,30 @@ public class MainActivity extends Activity {
             box(0,.92f,-2.35f,1.65f,.12f,.72f,0,.42f,.25f,.14f);
             box(-1.45f,.42f,-2.35f,.12f,.5f,.12f,0,.24f,.15f,.1f);box(1.45f,.42f,-2.35f,.12f,.5f,.12f,0,.24f,.15f,.1f);
             phone(0,1.12f,-2.25f, .8f,1);
+            // precision repair station: monitor, keyboard, microscope and tools
+            box(-.95f,1.55f,-2.85f,.48f,.36f,.08f,0,.055f,.075f,.09f);
+            box(-.95f,1.55f,-2.75f,.42f,.29f,.018f,0,.04f,.34f,.42f);
+            box(-.95f,1.18f,-2.85f,.055f,.22f,.055f,0,.18f,.2f,.22f);
+            box(-.95f,1.04f,-2.85f,.28f,.035f,.18f,0,.18f,.2f,.22f);
+            box(-.45f,1.03f,-2.0f,.38f,.025f,.14f,0,.18f,.2f,.22f);
+            for(int k=0;k<8;k++)box(-.72f+k*.075f,1.065f,-2.0f,.018f,.008f,.07f,0,.58f,.62f,.65f);
+            box(.9f,1.12f,-2.0f,.11f,.06f,.11f,0,.65f,.68f,.7f);
+            box(.9f,1.34f,-2.0f,.035f,.18f,.035f,0,.65f,.68f,.7f);
+            box(.9f,1.52f,-2.0f,.12f,.035f,.12f,0,.65f,.68f,.7f);
             box(-.7f,1.1f,-2.0f,.22f,.035f,.12f,0,.8f,.72f,.5f);
             // shelves with boxed devices
             box(-3.75f,1.5f,-2.5f,.18f,1.5f,.55f,0,.32f,.2f,.12f);
             for(int i=0;i<3;i++){float yy=.55f+i*.9f;box(-3.48f,yy,-2.5f,.45f,.05f,.62f,0,.42f,.29f,.18f);phone(-3.5f,yy+.36f,-2.5f,.35f,i==1?.7f:1);}
             // customer
             person(2.65f,0,-2.5f,.85f,.26f,.58f);
-            // chair and posters
+            // chair, display counter, wall branding and product boxes
             box(2.5f,.55f,-.5f,.45f,.06f,.4f,0,.2f,.28f,.3f);box(2.5f,.25f,-.8f,.06f,.3f,.06f,0,.12f,.16f,.18f);
+            box(2.9f,1.0f,-3.8f,.8f,.55f,.22f,0,.12f,.16f,.19f);
+            box(2.9f,1.58f,-3.8f,.82f,.045f,.24f,0,.48f,.3f,.16f);
+            for(int q=0;q<3;q++){box(2.4f+q*.48f,1.18f,-3.78f,.16f,.13f,.16f,0,.14f,.2f,.26f);box(2.4f+q*.48f,1.32f,-3.78f,.12f,.012f,.12f,0,.08f,.38f,.48f);}
+            box(-3.2f,3.2f,-4.82f,.85f,.45f,.035f,0,.04f,.09f,.14f);
+            box(-3.2f,3.2f,-4.78f,.65f,.035f,.02f,0,.12f,.72f,.82f);
+            for(int q=0;q<5;q++)box(-4.3f+q*.24f,.35f,-1.2f,.07f,.07f,.07f,0,.18f,.72f,.76f);
             box(-1.8f,3.1f,-4.82f,.9f,.55f,.035f,0,.08f,.34f,.4f);
             box(-1.8f,3.1f,-4.78f,.68f,.07f,.02f,0,.85f,.88f,.8f);
             // door
@@ -331,8 +353,29 @@ public class MainActivity extends Activity {
             person(0,0,15,.9f,.18f,.62f);
             box(0,.9f,14.5f,.9f,.08f,.45f,0,.4f,.23f,.12f);
             phone(0,1.08f,14.5f,.55f,.8f);
-            // street lamps
+            // sidewalks, storefronts, parked cars, trees, street furniture
+            box(-7.15f,.02f,26,1.0f,.06f,18,0,.48f,.49f,.46f);
+            box(7.15f,.02f,26,1.0f,.06f,18,0,.48f,.49f,.46f);
+            for(int row=0;row<4;row++){
+                float zz=19+row*8;
+                box(-6,2.7f,zz,1.45f,2.7f,3.2f,0,.34f+row*.025f,.38f,.44f);
+                box(6,3.1f,zz+1,1.45f,3.1f,3.0f,0,.42f,.29f+row*.025f,.24f);
+                for(int w=0;w<3;w++){
+                    box(-6,1.4f+w*.9f,zz-3.22f,.48f,.25f,.04f,0,.12f,.48f,.62f);
+                    box(6,1.4f+w*.9f,zz-2.22f,.48f,.25f,.04f,0,.12f,.48f,.62f);
+                }
+                float tx=(row%2==0)?-4.3f:4.3f;
+                box(tx,.8f,zz,.14f,.8f,.14f,0,.28f,.16f,.08f);
+                box(tx,1.9f,zz,.72f,.85f,.72f,0,.12f,.38f,.2f);
+                box(tx-.35f,1.65f,zz+.1f,.42f,.5f,.42f,0,.1f,.32f,.16f);
+                box(tx+.3f,2.1f,zz-.12f,.4f,.5f,.4f,0,.15f,.44f,.22f);
+            }
             for(int i=-1;i<=1;i+=2){box(i*4,2,10,.07f,2,.07f,0,.16f,.18f,.2f);box(i*4,4,10,.35f,.06f,.25f,0,.9f,.82f,.6f);}
+            for(int i=0;i<3;i++){float zz=21+i*9;box(3.2f,.48f,zz,.9f,.06f,.25f,0,.3f,.19f,.12f);box(3.2f,.25f,zz,.07f,.25f,.07f,0,.16f,.17f,.18f);}
+            box(-2.8f,.58f,29,1.05f,.48f,1.8f,0,.68f,.7f,.72f);
+            box(-2.8f,1.0f,29,.8f,.32f,.8f,0,.15f,.38f,.48f);
+            for(int side=-1;side<=1;side+=2)box(-2.8f+side*1.06f,.3f,29,.12f,.28f,.42f,0,.035f,.04f,.05f);
+            for(int k=0;k<12;k++)box(0,.025f,18+k*2.6f,.08f,.012f,.75f,0,.88f,.84f,.65f);
         }
     }
 }
