@@ -15,3 +15,5 @@ dependencyResolutionManagement {
 rootProject.name = "MatrixWall"
 include ':app'
 include ':pip'
+
+include ':mimo'
