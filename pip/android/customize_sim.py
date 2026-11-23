@@ -188,6 +188,11 @@ replacement = """  moodsEl.append(b);
 if needle not in s:
     raise SystemExit("Could not find mood button creation")
 s = s.replace(needle, replacement, 1)
+s = s.replace(
+    "for (const b of moodsEl.children) b.classList.toggle('cur', b.dataset.mood === st.mood);",
+    "for (const b of document.querySelectorAll('#moods button, #pip-moods-grid button')) b.classList.toggle('cur', b.dataset.mood === st.mood);",
+    1
+)
 
 # Wire the new bottom sheet to the same simulator actions as the original controls.
 needle = "muteBtn.onclick = () => M._sim_volume(M._sim_get_volume() > 0 ? 0 : 0.8);"
