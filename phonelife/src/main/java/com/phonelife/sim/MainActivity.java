@@ -57,10 +57,10 @@ public class MainActivity extends Activity {
         lp.setMargins(dp(12),0,0,dp(16)); root.addView(left,lp);
 
         LinearLayout right=new LinearLayout(this); right.setOrientation(LinearLayout.VERTICAL); right.setGravity(Gravity.BOTTOM|Gravity.RIGHT);
-        Button act=makeButton("E  ·  ДЕЙСТВИЕ",0xFFDB9B45); right.addView(act); act.setOnClickListener(v->interact());
-        Button shop=makeButton("M  ·  МАГАЗИН",0xFF247B91); right.addView(shop); shop.setOnClickListener(v->openShop());
-        Button bag=makeButton("I  ·  РЮКЗАК",0xFF315D83); right.addView(bag); bag.setOnClickListener(v->openInventory());
-        Button tasks=makeButton("J  ·  ЗАДАНИЯ",0xFF46556F); right.addView(tasks); tasks.setOnClickListener(v->showStory());
+        Button act=makeButton("ДЕЙСТВИЕ · ВЗАИМОДЕЙСТВИЕ",0xFFDB9B45); right.addView(act); act.setOnClickListener(v->interact());
+        Button shop=makeButton("МАГАЗИН · ДЕТАЛИ",0xFF247B91); right.addView(shop); shop.setOnClickListener(v->openShop());
+        Button bag=makeButton("РЮКЗАК · СКЛАД",0xFF315D83); right.addView(bag); bag.setOnClickListener(v->openInventory());
+        Button tasks=makeButton("ЗАДАНИЯ · СЮЖЕТ",0xFF46556F); right.addView(tasks); tasks.setOnClickListener(v->showStory());
         Button settings=makeButton("⚙  НАСТРОЙКИ",0xFF52616B); right.addView(settings); settings.setOnClickListener(v->showSettings());
         FrameLayout.LayoutParams rp=new FrameLayout.LayoutParams(dp(174),-2,Gravity.BOTTOM|Gravity.RIGHT);
         rp.setMargins(0,0,dp(14),dp(14)); root.addView(right,rp);
