@@ -5,6 +5,7 @@ on:
     paths:
       - 'app/**'
       - 'pip/**'
+      - 'pipglass/**'
       - 'build.gradle'
       - 'settings.gradle'
       - '.github/workflows/build.yml'
@@ -51,6 +52,9 @@ jobs:
           cp -R /tmp/pip-web/node_modules/three/examples/jsm/. pip/src/main/assets/pip/three/addons/
           sed -i 's#https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js#./three.module.js#g; s#https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/#./three/addons/#g' pip/src/main/assets/pip/index.html
           python pip/android/customize_sim.py
+          mkdir -p pipglass/src/main/assets
+          cp -R pip/src/main/assets/pip pipglass/src/main/assets/pip
+          python pipglass/android/liquid_glass.py
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -94,6 +98,8 @@ jobs:
             app/build/outputs/apk/debug/app-debug.apk
             pip/build/outputs/apk/release/pip-release.apk
             pip/build/outputs/apk/debug/pip-debug.apk
+            pipglass/build/outputs/apk/release/pipglass-release.apk
+            pipglass/build/outputs/apk/debug/pipglass-debug.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -110,6 +116,11 @@ jobs:
           else
             cp pip/build/outputs/apk/debug/pip-debug.apk dist/Pip-KeyPet.apk
           fi
+          if [ -f pipglass/build/outputs/apk/release/pipglass-release.apk ]; then
+            cp pipglass/build/outputs/apk/release/pipglass-release.apk dist/Pip-Glass.apk
+          else
+            cp pipglass/build/outputs/apk/debug/pipglass-debug.apk dist/Pip-Glass.apk
+          fi
 
       - name: Publish latest APKs
         uses: softprops/action-gh-release@v2
@@ -118,10 +129,11 @@ jobs:
           name: MatrixWall Pro + Пип — latest builds
           body: |
             Latest Android builds produced by GitHub Actions.
-            Pip is packaged from the official NovikovVisuals/Pip-KeyPet simulator and adapted for Android.
+            Pip and Pip Glass are packaged from the official NovikovVisuals/Pip-KeyPet simulator and adapted for Android. Pip Glass is a separate installable app with a unique application ID.
           files: |
             dist/MatrixWall-Pro.apk
             dist/Pip-KeyPet.apk
+            dist/Pip-Glass.apk
           overwrite_files: true
           fail_on_unmatched_files: true
           token: ${{ github.token }}
