@@ -3,4 +3,4 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:sessionService="com.pip.keypet.glass.PipVoiceInteractionSessionService"
     android:supportsAssist="true"
-    android:supportsLaunchFromKeyguard="false" />
+ />
