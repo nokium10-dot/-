@@ -153,12 +153,12 @@ s = s.replace("renderer.setPixelRatio(devicePixelRatio);",
 markup = """
 
 <div id="pip-alt-hud" aria-hidden="true">
-  <div class="brand">PIP / ALTVER</div>
+  <div class="brand">PIP / KEY PET</div>
   <div class="sub">DIGITAL COMPANION SYSTEM</div>
   <div class="online"><i></i> CORE ONLINE</div>
 </div>
 <div id="pip-alt-status" aria-hidden="true">
-  <strong>ALTVER OS · READY</strong>
+  <strong>KEY PET OS · READY</strong>
   <span>Связь с Пипом активна</span>
   <div class="meter"><i></i></div>
 </div>
