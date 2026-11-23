@@ -17,7 +17,17 @@
       annoyed:{open:.05,width:.17,curve:-.12,kind:'flat'},asleep:{open:.025,width:.16,curve:.12,kind:'sleep'},
       sleepy:{open:.04,width:.17,curve:.18,kind:'sleep'},tired:{open:.035,width:.16,curve:.1,kind:'sleep'},
       curious:{open:.14,width:.13,curve:0,kind:'oval'},puzzled:{open:.13,width:.14,curve:0,kind:'oval'},
-      skeptical:{open:.06,width:.16,curve:-.08,kind:'flat'},neutral:{open:.045,width:.17,curve:.24,kind:'smile'}
+      skeptical:{open:.06,width:.16,curve:-.08,kind:'flat'},
+      stoned:{open:.12,width:.18,curve:.35,kind:'smile'},pinkeye:{open:.05,width:.16,curve:-.2,kind:'flat'},
+      nauseous:{open:.08,width:.16,curve:-.4,kind:'flat'},sick:{open:.06,width:.16,curve:-.45,kind:'frown'},
+      exhausted:{open:.02,width:.15,curve:.08,kind:'sleep'},annoyed:{open:.05,width:.17,curve:-.12,kind:'flat'},
+      belligerent:{open:.1,width:.18,curve:-.25,kind:'flat'},swearing:{open:.25,width:.17,curve:-.1,kind:'oval'},
+      indignant:{open:.11,width:.17,curve:-.22,kind:'flat'},disgusted:{open:.06,width:.17,curve:-.38,kind:'frown'},
+      suspicious:{open:.04,width:.15,curve:-.1,kind:'flat'},cynical:{open:.07,width:.18,curve:.42,kind:'smile'},
+      nervous:{open:.18,width:.13,curve:0,kind:'oval'},dull:{open:.025,width:.15,curve:.08,kind:'sleep'},
+      shy:{open:.08,width:.17,curve:.55,kind:'smile'},dismayed:{open:.14,width:.15,curve:-.5,kind:'frown'},
+      yes:{open:.16,width:.19,curve:.65,kind:'smile'},no:{open:.06,width:.16,curve:-.2,kind:'flat'},
+      neutral:{open:.045,width:.17,curve:.24,kind:'smile'}
     };
     const draw=(ctx,size,off,core)=>{
       const now=performance.now(),dt=Math.min(.05,(now-lastTime)/1000);lastTime=now;
