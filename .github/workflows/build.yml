@@ -1,4 +1,4 @@
-name: Build MatrixWall and Pip APKs
+name: Build Android APKs
 
 on:
   push:
@@ -122,13 +122,13 @@ jobs:
             find phonelife/build/outputs -maxdepth 5 -type f -print || true
             exit 1
           fi
-          cp "$PHONE_LIFE_APK" dist/PHONE-LIFE-3D.apk
+          cp "$PHONE_LIFE_APK" dist/PHONE-LIFE-3D.apk\n          test -s dist/PHONE-LIFE-3D.apk\n          test "$(stat -c%s dist/PHONE-LIFE-3D.apk)" -gt 10000\n          unzip -t dist/PHONE-LIFE-3D.apk\n          echo "Phone Life APK size: $(stat -c%s dist/PHONE-LIFE-3D.apk) bytes"\n          "$ANDROID_HOME"/build-tools/*/aapt dump badging dist/PHONE-LIFE-3D.apk | grep -E "package: name=.com.phonelife.sim.|application-label"
 
       - name: Publish latest APKs
         uses: softprops/action-gh-release@v2
         with:
           tag_name: matrixwall-latest
-          name: MatrixWall Pro + Пип — latest builds
+          name: Phone Life 3D 1.0.0 + MatrixWall Pro + Пип
           body: |
             Latest Android builds produced by GitHub Actions.
             Pip is packaged from the official NovikovVisuals/Pip-KeyPet simulator and adapted for Android.
