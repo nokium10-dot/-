@@ -39,20 +39,21 @@ public final class PipActivity extends Activity {
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
         getWindow().setStatusBarColor(Color.BLACK);
         getWindow().setNavigationBarColor(Color.BLACK);
+        getWindow().setNavigationBarColor(Color.BLACK);
 
         tts = new TextToSpeech(this, result -> {
             if (result == TextToSpeech.SUCCESS) tts.setLanguage(new Locale("ru", "RU"));
         });
 
         FrameLayout root = new FrameLayout(this);
-        root.setBackgroundColor(Color.rgb(8, 9, 13));
+        root.setBackgroundColor(Color.BLACK);
 
         WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
                 .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
                 .build();
 
         webView = new WebView(this);
-        webView.setBackgroundColor(Color.rgb(8, 9, 13));
+        webView.setBackgroundColor(Color.BLACK);
         webView.getSettings().setJavaScriptEnabled(true);
         webView.getSettings().setDomStorageEnabled(true);
         webView.getSettings().setDatabaseEnabled(true);
