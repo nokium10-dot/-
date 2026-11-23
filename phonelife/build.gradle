@@ -1,6 +1,7 @@
 plugins {
     id 'com.android.application'
 }
+def phoneLifeAssets = layout.buildDirectory.dir("generated/phoneLifeAssets")
 android {
     namespace 'com.phonelife.sim'
     compileSdk 35
@@ -8,11 +9,63 @@ android {
         applicationId 'com.phonelife.sim'
         minSdk 23
         targetSdk 35
-        versionCode 2
-        versionName '1.0.0'
+        versionCode 3
+        versionName '1.1.0'
+    }
+    sourceSets {
+        main {
+            assets.srcDir(phoneLifeAssets)
+        }
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
+}
+tasks.register('generatePhoneLifeTextures') {
+    outputs.dir(phoneLifeAssets)
+    doLast {
+        File dir = phoneLifeAssets.get().asFile
+        dir.mkdirs()
+        def makeAtlas = { String fileName, int seed, boolean city ->
+            int size = 2048
+            int tile = size / 4
+            def image = new java.awt.image.BufferedImage(size, size, java.awt.image.BufferedImage.TYPE_INT_RGB)
+            def random = new java.util.Random(seed)
+            int[][] bases = city ?
+                [[104,91,76],[76,82,88],[139,132,119],[48,52,55],[58,112,139],[58,102,61],[116,104,88],[15,39,53]] :
+                [[119,77,43],[90,101,111],[137,139,132],[66,70,72],[52,139,164],[56,119,67],[151,133,105],[12,48,66]]
+            for (int y=0; y<size; y++) {
+                int ty=y/tile
+                for (int x=0; x<size; x++) {
+                    int tx=x/tile
+                    int id=(ty*4+tx)%8
+                    def base=bases[id]
+                    double grain
+                    if(id==0) grain=18*Math.sin((y%tile)*0.12 + Math.sin(x*0.017)*2.4)
+                    else if(id==1) grain=14*Math.sin((x%tile)*0.22)
+                    else if(id==2) grain=10*Math.sin(x*.045)*Math.cos(y*.052)
+                    else if(id==3) grain=7*Math.sin((x+y)*.13)
+                    else if(id==4) grain=24*Math.sin((x%tile)*.012 + (y%tile)*.006)
+                    else if(id==5) grain=16*Math.sin(x*.031)*Math.cos(y*.027)
+                    else if(id==6) grain=9*Math.sin((x+y)*.08)
+                    else grain=18*Math.sin(x*.018+y*.013)
+                    int n=random.nextInt(49)-24
+                    int r=Math.max(0,Math.min(255,(int)(base[0]+grain+n)))
+                    int g=Math.max(0,Math.min(255,(int)(base[1]+grain+n)))
+                    int b=Math.max(0,Math.min(255,(int)(base[2]+grain+n)))
+                    if(id==4){r=Math.min(255,r+8);b=Math.min(255,b+24)}
+                    if(id==7){r=Math.max(0,r-20);g=Math.min(255,g+12);b=Math.min(255,b+22)}
+                    image.setRGB(x,y,(r<<16)|(g<<8)|b)
+                }
+            }
+            javax.imageio.ImageIO.write(image,'png',new File(dir,fileName))
+        }
+        makeAtlas('workshop_atlas.png',38017,false)
+        makeAtlas('city_atlas.png',92041,true)
+        println "Generated high-resolution 3D material atlases: " + dir
+    }
+}
+tasks.named('preBuild').configure {
+    dependsOn tasks.named('generatePhoneLifeTextures')
 }
