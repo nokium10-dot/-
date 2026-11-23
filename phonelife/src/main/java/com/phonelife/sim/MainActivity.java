@@ -85,6 +85,8 @@ public class MainActivity extends Activity {
         Toast.makeText(this,"Добро пожаловать в PHONE LIFE. Осмотрись в мастерской.",Toast.LENGTH_LONG).show();
     }
 
+    @Override protected void onPause(){saveGame();super.onPause();}
+
     private Button makeButton(String text,int color){
         Button b=new Button(this); b.setText(text); b.setTextSize(11); b.setAllCaps(false); b.setTextColor(Color.WHITE);
         b.setBackgroundTintList(ColorStateList.valueOf(color));
@@ -93,7 +95,7 @@ public class MainActivity extends Activity {
     }
     private void updateHud(){
         top.setText(String.format(Locale.US,"₽ %,d     ДЕНЬ %d     РЕПУТАЦИЯ %d     ЗАКАЗЫ %d",money,day,reputation,orders));
-        quest.setText(quests[Math.min(storyStep,4)]);
+        quest.setText(storyStep>=5?"ИСТОРИЯ ЗАВЕРШЕНА · Мастерская открыта. Продолжай развивать бизнес.":quests[Math.min(storyStep,4)]);
         String near=game==null?"":game.getTargetHint();
         prompt.setText(near);
     }
@@ -136,7 +138,7 @@ public class MainActivity extends Activity {
             int cost=w==0?1500:w==1?4500:w==2?2500:w==3?1200:w==4?8000:900;
             if(money<cost){Toast.makeText(this,"Не хватает рублей.",Toast.LENGTH_SHORT).show();return;}
             spend(cost);
-            if(w==0)parts+=3; if(w==1)usedPhones++; if(w==2)screens++; if(w==3)batteries++; if(w==4){upgrades++;reputation++;} if(w==5){orders++;parts++;}
+            if(w==0)parts+=3; if(w==1)usedPhones++; if(w==2)screens++; if(w==3)batteries++; if(w==4){upgrades++;reputation++;if(storyStep>=4){storyStep=5;Toast.makeText(this,"Мастерская улучшена! Ты открыл собственный сервис. История пройдена.",Toast.LENGTH_LONG).show();}} if(w==5){orders++;parts++;}
             if(storyStep==0)storyStep=1;
             saveGame();updateHud();
         }).setNegativeButton("ЗАКРЫТЬ",null).show();
@@ -152,7 +154,7 @@ public class MainActivity extends Activity {
         "Глава 2. ПЕРВЫЙ ЗАКАЗ\nКупи подержанный смартфон, детали и восстанови его на верстаке.\n\n"+
         "Глава 3. СЛОВО ПО РАЙОНУ\nПродай готовый телефон клиенту и заработай репутацию.\n\n"+
         "Глава 4. ПОЕЗДКА\nВыйди на улицу, найди торговца и купи редкую батарею.\n\n"+
-        "Глава 5. СВОЁ ДЕЛО\nВыполняй заказы, копи деньги и преврати мастерскую в лучший сервис района.";
+        "Глава 5. СВОЁ ДЕЛО\nВыполняй заказы, копи деньги и улучши мастерскую за ₽8 000.\n\n"+(storyStep>=5?"ФИНАЛ: Ты открыл собственный сервис! Теперь можно продолжать свободную игру.":"История ещё продолжается.");
         new AlertDialog.Builder(this).setTitle("ИСТОРИЯ PHONE LIFE").setMessage(s).setPositiveButton("ПРОДОЛЖИТЬ",null).show();
     }
 
@@ -179,7 +181,7 @@ public class MainActivity extends Activity {
         String getTarget(){return scene.target();}
         String getTargetHint(){return scene.targetHint();}
         void setAction(int a){scene.action=a;}
-        void setOutside(boolean b){scene.outside=b;scene.x=0;scene.z=b?8.5f:3.5f;scene.yaw=b?0:0;}
+        void setOutside(boolean b){scene.outside=b;scene.riding=false;scene.x=0;scene.z=b?10.5f:3.5f;scene.yaw=b?180:0;}
         void setRiding(boolean b){scene.riding=b;}
     }
 
@@ -210,7 +212,7 @@ public class MainActivity extends Activity {
         String target(){
             String best="";float bd=99;
             String[] names=outside?new String[]{"scooter","vendor","door"}:new String[]{"bench","shelf","customer","door"};
-            float[][] pts=outside?new float[][]{{0,0,9.5f},{0,0,12},{0,0,5}}:new float[][]{{0,0,-2.3f},{-3.6f,0,-2.5f},{2.7f,0,-2.4f},{4.1f,0,1.4f}};
+            float[][] pts=outside?new float[][]{{0,0,12},{0,0,15},{0,0,5}}:new float[][]{{0,0,-2.3f},{-3.6f,0,-2.5f},{2.7f,0,-2.4f},{4.1f,0,1.4f}};
             float dx=(float)Math.sin(Math.toRadians(yaw)),dz=-(float)Math.cos(Math.toRadians(yaw));
             for(int i=0;i<names.length;i++){float vx=pts[i][0]-x,vz=pts[i][2]-z;float d=(float)Math.sqrt(vx*vx+vz*vz);float dot=(vx*dx+vz*dz)/Math.max(.001f,d);
                 if(d<3.0f&&dot>.25f&&d<bd){bd=d;best=names[i];}}
@@ -230,7 +232,7 @@ public class MainActivity extends Activity {
         @Override public void onDrawFrame(GL10 gl){
             long now=System.nanoTime();float dt=Math.min(.05f,(now-last)/1e9f);last=now;anim+=dt;
             float sy=(float)Math.sin(Math.toRadians(yaw)),cy=(float)Math.cos(Math.toRadians(yaw));
-            float speed=riding?7.0f:(upgrades>0?3.7f:3.2f);x+=(sy*moveY+cy*moveX)*dt*speed;z+=(-cy*moveY+sy*moveX)*dt*speed;
+            float speed=riding?7.0f:3.2f;x+=(sy*moveY+cy*moveX)*dt*speed;z+=(-cy*moveY+sy*moveX)*dt*speed;
             if(outside){x=Math.max(-7,Math.min(7,x));z=Math.max(6,Math.min(32,z));}else{x=Math.max(-4.45f,Math.min(4.45f,x));z=Math.max(-4.45f,Math.min(4.45f,z));}
             float py=(float)Math.toRadians(pitch);float lookX=(float)Math.sin(Math.toRadians(yaw))*Math.cos(py),lookY=(float)Math.sin(py),lookZ=-(float)Math.cos(Math.toRadians(yaw))*Math.cos(py);
             Matrix.setLookAtM(view,0,x,y,z,x+lookX,y+lookY,z+lookZ,0,1,0);Matrix.multiplyMM(vp,0,proj,0,view,0);
@@ -291,13 +293,13 @@ public class MainActivity extends Activity {
             box(6,2.8f,13,1.4f,2.8f,4,0,.42f,.3f,.25f);
             for(int i=0;i<3;i++){box(-6,2+i*.9f,8.95f,.5f,.25f,.04f,0,.2f,.55f,.68f);box(6,2+i*.9f,10.95f,.5f,.25f,.04f,0,.2f,.55f,.68f);}
             // scooter and vendor
-            box(0,.48f,9.5f,.75f,.07f,.18f,0,.1f,.13f,.16f);
-            box(-.65f,.25f,9.5f,.22f,.22f,.22f,0,.035f,.04f,.05f);box(.65f,.25f,9.5f,.22f,.22f,.22f,0,.035f,.04f,.05f);
-            box(0,.95f,9.5f,.06f,.52f,.06f,0,.1f,.65f,.52f);box(0,1.22f,9.5f,.42f,.05f,.06f,0,.1f,.12f,.13f);
+            box(0,.48f,12f,.75f,.07f,.18f,0,.1f,.13f,.16f);
+            box(-.65f,.25f,12f,.22f,.22f,.22f,0,.035f,.04f,.05f);box(.65f,.25f,12f,.22f,.22f,.22f,0,.035f,.04f,.05f);
+            box(0,.95f,12f,.06f,.52f,.06f,0,.1f,.65f,.52f);box(0,1.22f,12f,.42f,.05f,.06f,0,.1f,.12f,.13f);
             if(riding){box(0,1.05f,.55f,.42f,.06f,.12f,0,.08f,.12f,.14f);box(-.32f,.9f,.55f,.035f,.25f,.035f,0,.12f,.16f,.18f);box(.32f,.9f,.55f,.035f,.25f,.035f,0,.12f,.16f,.18f);}
-            person(0,0,12,.9f,.18f,.62f);
-            box(0,.9f,11.5f,.9f,.08f,.45f,0,.4f,.23f,.12f);
-            phone(0,1.08f,11.5f,.55f,.8f);
+            person(0,0,15,.9f,.18f,.62f);
+            box(0,.9f,14.5f,.9f,.08f,.45f,0,.4f,.23f,.12f);
+            phone(0,1.08f,14.5f,.55f,.8f);
             // street lamps
             for(int i=-1;i<=1;i+=2){box(i*4,2,10,.07f,2,.07f,0,.16f,.18f,.2f);box(i*4,4,10,.35f,.06f,.25f,0,.9f,.82f,.6f);}
         }
