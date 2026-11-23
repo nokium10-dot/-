@@ -485,6 +485,8 @@ loader = r"""
   // Restore enabled mods quietly on every simulator start, without forcing the repository panel open.
   (async()=>{
     try{
+      for(let wait=0;wait<80&&!window.PipCore;wait++)await new Promise(resolve=>setTimeout(resolve,250));
+      if(!window.PipCore)return;
       const response=await fetch(MANIFEST,{cache:'no-store'});if(!response.ok)return;
       const data=await response.json();mods=Array.isArray(data.mods)?data.mods:[];
       for(const mod of mods){
