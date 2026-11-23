@@ -31,6 +31,17 @@ css = """
   #pip-settings .swatch { display:flex; align-items:center; justify-content:flex-start; gap:9px; padding:0 12px; }
   #pip-settings .dot { width:17px; height:17px; border-radius:50%; border:1px solid #ffffff66; flex:none; }
   #pip-settings .assist, #pip-settings .reset-zoom { width:100%; margin-top:12px; }
+  #pip-mod-repo { width:100%; margin-top:12px; }
+  #pip-mod-panel { display:none; position:fixed; z-index:45; inset:0; box-sizing:border-box; padding:calc(env(safe-area-inset-top) + 18px) 16px calc(env(safe-area-inset-bottom) + 18px); background:#050507; color:#f4f4f8; font:14px system-ui,sans-serif; overflow-y:auto; }
+  #pip-mod-panel.open { display:block; }
+  #pip-mod-panel .mod-head { display:flex; align-items:center; gap:12px; margin-bottom:18px; }
+  #pip-mod-panel h3 { margin:0; font-size:21px; }
+  #pip-mod-panel .mod-row { padding:14px; margin:9px 0; border:1px solid #292932; border-radius:15px; background:#101014; }
+  #pip-mod-panel .mod-row strong { display:block; margin-bottom:5px; }
+  #pip-mod-panel .mod-row p { margin:0 0 10px; color:#aeb2c2; line-height:1.4; font-size:12px; }
+  #pip-mod-panel .mod-toggle { min-height:36px; padding:0 14px; }
+  #pip-mod-panel .mod-toggle.active { border-color:#70cfa6; background:#14251e; }
+  #pip-mod-status { color:#969aaa; font-size:12px; margin:8px 0 14px; }
   #pip-settings .hint { color:#777b89; font-size:12px; margin-top:18px; line-height:1.5; }
   #pip-settings .settings-card { padding:15px; border:1px solid #24242c; border-radius:17px; background:#08080b; }
   #pip-actions-trigger {
@@ -84,9 +95,15 @@ markup = """
       <button class="swatch" data-case="#9d244d" data-polish="#ed79a0"><i class="dot" style="background:#9d244d"></i>Розовый</button>
     </div>
   </div>
+  <button id="pip-mod-repo">🧩 Репозиторий модов</button>
   <button class="assist" id="pip-assistant-role">Выбрать Пипа помощником</button>
   <button class="reset-zoom" id="pip-reset-zoom">Сбросить размер часов</button>
   <div class="hint">Сведите или разведите два пальца на самих часах, чтобы изменить их размер.</div>
+</section>
+<section id="pip-mod-panel" aria-label="Репозиторий модов">
+  <div class="mod-head"><button class="back" id="pip-mod-back">‹</button><h3>Репозиторий модов</h3></div>
+  <div id="pip-mod-status">Загрузка каталога…</div>
+  <div id="pip-mod-list"></div>
 </section>
 <button id="pip-actions-trigger" aria-label="Действия и эмоции Пипа" title="Действия и эмоции">☻</button>
 <section id="pip-actions-sheet" aria-label="Действия и эмоции Пипа">
@@ -253,5 +270,50 @@ footer = """
 })();
 </script>
 """
-s = s.replace("</body>", footer + "\n</body>", 1)
+s = s.replace("
+<script>
+(() => {
+  const MANIFEST='https://raw.githubusercontent.com/nokium10-dot/-/main/pip-mods/manifest.json';
+  const BASE='https://raw.githubusercontent.com/nokium10-dot/-/main/pip-mods/';
+  const panel=document.getElementById('pip-mod-panel'), list=document.getElementById('pip-mod-list'), status=document.getElementById('pip-mod-status');
+  const active=new Set(JSON.parse(localStorage.getItem('pip.mods.active')||'[]'));
+  const loaded=new Set(), cleanups=new Map(), registrations=new Map();
+  window.PipMods={
+    has:id=>registrations.has(id),
+    register:(id,enable)=>registrations.set(id,enable)
+  };
+  const persist=()=>localStorage.setItem('pip.mods.active',JSON.stringify([...active]));
+  async function ensureScript(mod){
+    if(registrations.has(mod.id))return;
+    if(!loaded.has(mod.id)){
+      await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=BASE+mod.entry;script.onload=resolve;script.onerror=()=>reject(new Error('Не удалось загрузить '+mod.name));document.head.append(script);});
+      loaded.add(mod.id);
+    }
+    if(!registrations.has(mod.id))throw new Error('Мод не зарегистрировал себя');
+  }
+  async function setMod(mod,on){
+    if(on){await ensureScript(mod);const cleanup=registrations.get(mod.id)();if(typeof cleanup==='function')cleanups.set(mod.id,cleanup);active.add(mod.id);}
+    else{const cleanup=cleanups.get(mod.id);if(cleanup)cleanup();cleanups.delete(mod.id);active.delete(mod.id);}
+    persist();renderOne(mod);
+  }
+  let mods=[];
+  function renderOne(mod){
+    const row=list.querySelector('[data-mod="'+mod.id+'"]');if(!row)return;
+    const b=row.querySelector('button');b.classList.toggle('active',active.has(mod.id));b.textContent=active.has(mod.id)?'Установлен ✓':'Установить';
+  }
+  function render(){
+    list.replaceChildren();
+    mods.forEach(mod=>{
+      const row=document.createElement('div');row.className='mod-row';row.dataset.mod=mod.id;
+      const title=document.createElement('strong');title.textContent=mod.name+' · '+mod.version;
+      const desc=document.createElement('p');desc.textContent=mod.description;
+      const b=document.createElement('button');b.className='mod-toggle';b.textContent=active.has(mod.id)?'Установлен ✓':'Установить';
+      b.onclick=async()=>{b.disabled=true;try{await setMod(mod,!active.has(mod.id));status.textContent='Изменения сохранены на этом устройстве.';}catch(e){status.textContent=e.message;}finally{b.disabled=false;}};
+      row.append(title,desc,b);list.append(row);
+    });
+  }
+  document.getElementById('pip-mod-repo').onclick=async()=>{panel.classList.add('open');status.textContent='Загрузка каталога…';try{const r=await fetch(MANIFEST,{cache:'no-store'});if(!r.ok)throw new Error('Каталог недоступен');const data=await r.json();mods=data.mods||[];render();status.textContent='Выберите моды. Их можно включать одновременно.';for(const m of mods)if(active.has(m.id)){try{await ensureScript(m);const cleanup=registrations.get(m.id)();if(typeof cleanup==='function')cleanups.set(m.id,cleanup);}catch(e){active.delete(m.id);persist();status.textContent='Один из сохранённых модов не загрузился: '+e.message;}}}catch(e){status.textContent='Не удалось загрузить каталог. Проверьте интернет и откройте раздел снова.';}};
+  document.getElementById('pip-mod-back').onclick=()=>panel.classList.remove('open');
+})();
+</script>\n</body>", footer + "\n</body>", 1)
 p.write_text(s, encoding="utf-8")
