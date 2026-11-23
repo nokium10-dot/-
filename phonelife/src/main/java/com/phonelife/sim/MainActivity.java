@@ -214,7 +214,7 @@ public class MainActivity extends Activity {
         GameView(Activity a){super(a);setEGLContextClientVersion(2);scene=new Scene(a);setRenderer(scene);setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);}
         void setMove(float x,float y){scene.moveX=x;scene.moveY=y;}
         void lookStart(float x,float y){lastX=x;lastY=y;}
-        void lookMove(float x,float y){float dx=x-lastX,dy=y-lastY;lastX=x;lastY=y;scene.turn(dx*.16f,dy*.13f);}
+        void lookMove(float x,float y){float dx=x-lastX,dy=y-lastY;lastX=x;lastY=y;scene.turn(dx*.16f,-dy*.13f);}
         void lookEnd(){}
         String getTarget(){return scene.target();}
         String getTargetHint(){return scene.targetHint();}
