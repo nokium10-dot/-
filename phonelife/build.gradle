@@ -63,6 +63,8 @@ tasks.register('generatePhoneLifeTextures') {
         }
         makeAtlas('workshop_atlas.png',38017,false)
         makeAtlas('city_atlas.png',92041,true)
+        makeAtlas('workshop_detail.png',77419,false)
+        makeAtlas('city_detail.png',55283,true)
         println "Generated high-resolution 3D material atlases: " + dir
     }
 }
