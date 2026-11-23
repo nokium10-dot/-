@@ -85,7 +85,7 @@ public class MainActivity extends Activity {
         Toast.makeText(this,"Добро пожаловать в PHONE LIFE. Осмотрись в мастерской.",Toast.LENGTH_LONG).show();
     }
 
-    @Override protected void onPause(){saveGame();super.onPause();}
+    @Override protected void onPause(){saveGame();super.onPause();}\n    @Override protected void onStop(){saveGame();super.onStop();}
 
     private Button makeButton(String text,int color){
         Button b=new Button(this); b.setText(text); b.setTextSize(11); b.setAllCaps(false); b.setTextColor(Color.WHITE);
@@ -154,6 +154,15 @@ public class MainActivity extends Activity {
             "\nУлучшения мастерской: "+upgrades+"\nАктивные заказы: "+orders+"\nПродано телефонов: "+totalSales+"\nРемонтов выполнено: "+completedRepairs+"\nРепутация: "+reputation+"\n\nПрогресс сохраняется автоматически.";
         new AlertDialog.Builder(this).setTitle("РЮКЗАК И СКЛАД").setMessage(s).setPositiveButton("ПОНЯТНО",null).show();
     }
+    private void showSettings(){
+        String[] options={"Сохранить игру сейчас","Как играть / управление","Сбросить сохранение"};
+        new AlertDialog.Builder(this).setTitle("НАСТРОЙКИ").setItems(options,(d,w)->{
+            if(w==0){saveGame();Toast.makeText(this,"Прогресс сохранён.",Toast.LENGTH_SHORT).show();}
+            else if(w==1){new AlertDialog.Builder(this).setTitle("УПРАВЛЕНИЕ").setMessage("Левый виртуальный джойстик — движение.\nПроводи пальцем по правой части экрана — осмотр.\nПодойди к объекту и направь на него камеру, затем нажми ДЕЙСТВИЕ.\nМАГАЗИН — каталог комплектующих. РЮКЗАК — склад. ИСТОРИЯ — сюжетные главы.\n\nСборка телефона требует подержанный смартфон, набор деталей, экран и аккумулятор.").setPositiveButton("ПОНЯТНО",null).show();}
+            else {new AlertDialog.Builder(this).setTitle("Сбросить прогресс?").setMessage("Все деньги, предметы и сюжетный прогресс будут удалены. Это действие нельзя отменить.").setNegativeButton("ОТМЕНА",null).setPositiveButton("СБРОСИТЬ",(x,y)->{save.edit().clear().apply();money=18000;parts=0;usedPhones=0;screens=0;batteries=0;finishedPhones=0;reputation=0;day=1;storyStep=0;upgrades=0;orders=0;totalSales=0;completedRepairs=0;outside=false;scooterRiding=false;game.setOutside(false);game.setRiding(false);updateHud();Toast.makeText(this,"Новая игра начата.",Toast.LENGTH_SHORT).show();});}
+        }).setNegativeButton("ЗАКРЫТЬ",null).show();
+    }
+
     private void showStory(){
         String s="Глава 1. НАСЛЕДСТВО\nДядя оставил тебе старую мастерскую и записку: «Телефоны можно чинить, а доверие клиентов нужно заслужить».\n\n"+
         "Глава 2. ПЕРВЫЙ ЗАКАЗ\nКупи подержанный смартфон, детали и восстанови его на верстаке.\n\n"+
