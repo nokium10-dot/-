@@ -20,7 +20,7 @@ public class MainActivity extends Activity {
     private GameView game;
     private TextView top, quest, prompt;
     private int money=18000, parts=0, usedPhones=0, screens=0, batteries=0, finishedPhones=0, reputation=0, day=1;
-    private int storyStep=0, upgrades=0, orders=0;
+    private int storyStep=0, upgrades=0, orders=0, totalSales=0, completedRepairs=0;
     private boolean outside=false, scooterRiding=false;
     private SharedPreferences save;
     private final String[] quests={
@@ -100,8 +100,8 @@ public class MainActivity extends Activity {
         prompt.setText(near);
     }
     private void spend(int amount){money-=amount;}
-    private void saveGame(){if(save==null)return;save.edit().putInt("money",money).putInt("parts",parts).putInt("usedPhones",usedPhones).putInt("screens",screens).putInt("batteries",batteries).putInt("finishedPhones",finishedPhones).putInt("reputation",reputation).putInt("day",day).putInt("storyStep",storyStep).putInt("upgrades",upgrades).putInt("orders",orders).putBoolean("outside",outside).apply();}
-    private void loadGame(){money=save.getInt("money",18000);parts=save.getInt("parts",0);usedPhones=save.getInt("usedPhones",0);screens=save.getInt("screens",0);batteries=save.getInt("batteries",0);finishedPhones=save.getInt("finishedPhones",0);reputation=save.getInt("reputation",0);day=save.getInt("day",1);storyStep=Math.max(0,Math.min(4,save.getInt("storyStep",0)));upgrades=save.getInt("upgrades",0);orders=save.getInt("orders",0);outside=save.getBoolean("outside",false);game.setOutside(outside);}
+    private void saveGame(){if(save==null)return;save.edit().putInt("money",money).putInt("parts",parts).putInt("usedPhones",usedPhones).putInt("screens",screens).putInt("batteries",batteries).putInt("finishedPhones",finishedPhones).putInt("reputation",reputation).putInt("day",day).putInt("storyStep",storyStep).putInt("upgrades",upgrades).putInt("orders",orders).putInt("totalSales",totalSales).putInt("completedRepairs",completedRepairs).putBoolean("outside",outside).apply();}
+    private void loadGame(){money=save.getInt("money",18000);parts=save.getInt("parts",0);usedPhones=save.getInt("usedPhones",0);screens=save.getInt("screens",0);batteries=save.getInt("batteries",0);finishedPhones=save.getInt("finishedPhones",0);reputation=save.getInt("reputation",0);day=save.getInt("day",1);storyStep=Math.max(0,Math.min(5,save.getInt("storyStep",0)));upgrades=save.getInt("upgrades",0);orders=save.getInt("orders",0);totalSales=save.getInt("totalSales",0);completedRepairs=save.getInt("completedRepairs",0);outside=save.getBoolean("outside",false);game.setOutside(outside);}
     private void interact(){
         String target=game.getTarget();
         if("bench".equals(target)){
@@ -114,11 +114,11 @@ public class MainActivity extends Activity {
                 orders--; parts--; money+=1600; reputation+=2; day++;
                 game.setAction(1);
                 Toast.makeText(this,"Заказ на ремонт выполнен. Клиент оплатил ₽1 600.",Toast.LENGTH_LONG).show();
-            } else if(usedPhones>0) Toast.makeText(this,"Не хватает деталей. Загляни в магазин.",Toast.LENGTH_SHORT).show();
+            } else if(usedPhones>0) Toast.makeText(this,"Для сборки нужны набор деталей, экран AMOLED и аккумулятор. Проверь магазин и рюкзак.",Toast.LENGTH_LONG).show();
             else if(orders>0) Toast.makeText(this,"Для ремонта нужен набор деталей. Купи его в магазине.",Toast.LENGTH_SHORT).show();
             else Toast.makeText(this,"Сначала купи подержанный телефон или возьми заказ на ремонт.",Toast.LENGTH_SHORT).show();
         } else if("customer".equals(target)){
-            if(finishedPhones>0){finishedPhones--;money+=6500;reputation+=2;game.setAction(2);Toast.makeText(this,"Клиент доволен. +₽6 500",Toast.LENGTH_SHORT).show();storyStep=Math.max(storyStep,3);}
+            if(finishedPhones>0){finishedPhones--;money+=6500;reputation+=2;totalSales++;game.setAction(2);Toast.makeText(this,"Клиент доволен. +₽6 500",Toast.LENGTH_SHORT).show();storyStep=Math.max(storyStep,3);}
             else Toast.makeText(this,"Клиент: «Ищу хороший восстановленный смартфон». Сначала собери один.",Toast.LENGTH_LONG).show();
         } else if("shelf".equals(target)){
             openShop();
@@ -130,7 +130,7 @@ public class MainActivity extends Activity {
             scooterRiding=!scooterRiding;game.setRiding(scooterRiding);
             Toast.makeText(this,scooterRiding?"Самокат включён. Используй джойстик для поездки.":"Ты слез с самоката.",Toast.LENGTH_SHORT).show();
         } else if("vendor".equals(target)){
-            if(outside){if(money>=3000){spend(3000);parts++;batteries++;reputation++;storyStep=4;Toast.makeText(this,"Торговец продал редкую батарею и набор деталей.",Toast.LENGTH_LONG).show();}else Toast.makeText(this,"Торговец: «Нужно ₽3 000 за комплект».",Toast.LENGTH_SHORT).show();}
+            if(outside){if(money>=3000){spend(3000);parts++;batteries++;screens++;reputation++;storyStep=4;Toast.makeText(this,"Торговец продал редкую батарею и набор деталей.",Toast.LENGTH_LONG).show();}else Toast.makeText(this,"Торговец: «Нужно ₽3 000 за комплект».",Toast.LENGTH_SHORT).show();}
         } else {
             Toast.makeText(this,"Подойди ближе к верстаку, клиенту, стеллажу или двери.",Toast.LENGTH_SHORT).show();
         }
@@ -143,7 +143,7 @@ public class MainActivity extends Activity {
             int cost=w==0?1500:w==1?4500:w==2?2500:w==3?1200:w==4?8000:900;
             if(money<cost){Toast.makeText(this,"Не хватает рублей.",Toast.LENGTH_SHORT).show();return;}
             spend(cost);
-            if(w==0)parts+=3; if(w==1)usedPhones++; if(w==2)screens++; if(w==3)batteries++; if(w==4){upgrades++;reputation++;if(storyStep>=4){storyStep=5;Toast.makeText(this,"Мастерская улучшена! Ты открыл собственный сервис. История пройдена.",Toast.LENGTH_LONG).show();}} if(w==5){orders++;parts++;}
+            if(w==0)parts+=3; if(w==1)usedPhones++; if(w==2)screens++; if(w==3)batteries++; if(w==4){upgrades++;reputation++;if(storyStep>=4){storyStep=5;Toast.makeText(this,"Мастерская улучшена! Ты открыл собственный сервис. История пройдена.",Toast.LENGTH_LONG).show();}} if(w==5){orders++;parts++;}\n            if(w==0 && storyStep==0) storyStep=1;
             if(storyStep==0)storyStep=1;
             saveGame();updateHud();
         }).setNegativeButton("ЗАКРЫТЬ",null).show();
@@ -151,7 +151,7 @@ public class MainActivity extends Activity {
     private void openInventory(){
         String s="Подержанные телефоны: "+usedPhones+"\nГотовые телефоны: "+finishedPhones+
             "\nНаборы деталей: "+parts+"\nЭкраны: "+screens+"\nАккумуляторы: "+batteries+
-            "\nУлучшения мастерской: "+upgrades+"\nАктивные заказы: "+orders+"\n\nПрогресс сохраняется автоматически.";
+            "\nУлучшения мастерской: "+upgrades+"\nАктивные заказы: "+orders+"\nПродано телефонов: "+totalSales+"\nРемонтов выполнено: "+completedRepairs+"\nРепутация: "+reputation+"\n\nПрогресс сохраняется автоматически.";
         new AlertDialog.Builder(this).setTitle("РЮКЗАК И СКЛАД").setMessage(s).setPositiveButton("ПОНЯТНО",null).show();
     }
     private void showStory(){
