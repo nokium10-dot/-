@@ -74,6 +74,7 @@ public final class PipActivity extends Activity {
             public void onPageFinished(WebView view, String url) {
                 if (Intent.ACTION_ASSIST.equals(getIntent().getAction())) {
                     Toast.makeText(PipActivity.this, "Пип готов", Toast.LENGTH_SHORT).show();
+                    startVoiceInput();
                 }
             }
         });
