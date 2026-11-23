@@ -1,0 +1,1 @@
+(()=>{window.MimoMods?.register('night-sky',()=>{let on=true;const draw=(c,s,o)=>{if(!on)return;c.save();c.globalAlpha=.16;c.fillStyle='#111a42';c.fillRect(o,o,s,s);c.restore();};window.MimoMods.addScreenLayer('night-sky',draw);return()=>{on=false;window.MimoMods.removeScreenLayer('night-sky');};});})();
