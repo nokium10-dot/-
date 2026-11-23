@@ -1,0 +1,83 @@
+name: Build standalone Pip APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'pip/**'
+      - 'settings.gradle'
+      - 'build.gradle'
+      - '.github/workflows/build-pip.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-pip:
+    name: Build Pip only
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Android wrapper
+        uses: actions/checkout@v4
+
+      - name: Checkout official Pip-KeyPet source
+        uses: actions/checkout@v4
+        with:
+          repository: NovikovVisuals/Pip-KeyPet
+          ref: main
+          path: pip-src
+          submodules: recursive
+
+      - name: Install native build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build cmake
+
+      - name: Set up Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build original Pip simulator for Android
+        run: |
+          emcmake cmake -S pip-src/sim -B pip-src/build-web -G Ninja
+          cmake --build pip-src/build-web --parallel
+          npm install --prefix /tmp/pip-web three@0.170.0
+          mkdir -p pip/src/main/assets/pip/three/addons
+          cp pip-src/sim/web/index.html pip/src/main/assets/pip/index.html
+          cp pip-src/sim/web/pip.js pip/src/main/assets/pip/pip.js
+          cp pip-src/sim/web/pip.wasm pip/src/main/assets/pip/pip.wasm
+          cp /tmp/pip-web/node_modules/three/build/three.module.js pip/src/main/assets/pip/three.module.js
+          cp -R /tmp/pip-web/node_modules/three/examples/jsm/. pip/src/main/assets/pip/three/addons/
+          sed -i 's#https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js#./three.module.js#g; s#https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/#./three/addons/#g' pip/src/main/assets/pip/index.html
+          python pip/android/customize_sim.py
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Assemble Pip APK only
+        run: gradle :pip:assembleDebug --no-daemon --stacktrace
+
+      - name: Rename standalone APK
+        run: |
+          mkdir -p dist
+          cp pip/build/outputs/apk/debug/pip-debug.apk dist/Pip-KeyPet.apk
+
+      - name: Upload standalone Pip APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pip-KeyPet-APK
+          path: dist/Pip-KeyPet.apk
+          if-no-files-found: error
+          retention-days: 30
