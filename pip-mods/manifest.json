@@ -1,47 +1,55 @@
 {
   "schema": 1,
   "repository": "Pip Mods",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "mods": [
     {
       "id": "aurora",
       "name": "Северное сияние",
-      "version": "1.0.0",
-      "description": "Мягкое переливающееся свечение вокруг Пипа.",
+      "version": "1.1.0",
+      "description": "Мягкие цветные переливы вокруг Пипа без тяжёлых графических фильтров.",
       "category": "Внешний вид",
       "entry": "aurora.js"
     },
     {
       "id": "starfield",
       "name": "Звёздная пыль",
-      "version": "1.0.0",
-      "description": "Медленно плывущие звёзды на фоне.",
+      "version": "1.1.0",
+      "description": "Спокойный движущийся звёздный фон с минимальной нагрузкой.",
       "category": "Атмосфера",
       "entry": "starfield.js"
     },
     {
       "id": "moodglow",
       "name": "Живые эмоции",
-      "version": "1.0.0",
-      "description": "Цветной ореол меняется при выборе эмоции.",
+      "version": "1.1.0",
+      "description": "Нежное свечение меняет оттенок со временем.",
       "category": "Эмоции",
       "entry": "moodglow.js"
     },
     {
       "id": "nightlight",
       "name": "Ночной режим+",
-      "version": "1.0.0",
-      "description": "Тёплая ночная подсветка и спокойная виньетка.",
+      "version": "1.1.0",
+      "description": "Тёплая мягкая виньетка для вечернего оформления.",
       "category": "Экран",
       "entry": "nightlight.js"
     },
     {
       "id": "tapfx",
       "name": "Искры касаний",
-      "version": "1.0.0",
-      "description": "Небольшие искры появляются при касании экрана.",
+      "version": "1.1.0",
+      "description": "Лёгкие кольца появляются при касании экрана.",
       "category": "Эффекты",
       "entry": "tapfx.js"
+    },
+    {
+      "id": "mouth",
+      "name": "Улыбка Пипа",
+      "version": "1.0.0",
+      "description": "Добавляет Пипу аккуратный рот-улыбку прямо в изображение экрана, в стиле оригинальной графики.",
+      "category": "Внешний вид",
+      "entry": "mouth.js"
     }
   ]
 }
