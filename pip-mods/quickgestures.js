@@ -16,7 +16,7 @@
         else lastTap=now;
       }else if(Math.abs(dx)>75&&Math.abs(dx)>Math.abs(dy)*1.35){
         if(dx<0)core._sim_button(0);
-        else core._sim_button_up(1);
+        else {core._sim_button(1);setTimeout(()=>core._sim_button_up(1),90);}
       }
       start=null;
     };
