@@ -361,7 +361,7 @@ loader = r"""
     register:(id,factory)=>{if(typeof id==='string'&&typeof factory==='function')registrations.set(id,factory);},
     addScreenLayer:(id,draw)=>{if(typeof id==='string'&&typeof draw==='function')screenLayers.set(id,draw);},
     removeScreenLayer:id=>screenLayers.delete(id),
-    drawScreen:(ctx,size)=>{for(const [id,draw] of screenLayers){try{draw(ctx,size);}catch(e){console.warn('Pip mod render error:',id,e);}}}
+    drawScreen:(ctx,size,off,core)=>{ctx.save();ctx.beginPath();ctx.arc(off+size/2,off+size/2,size/2,0,Math.PI*2);ctx.clip();for(const [id,draw] of screenLayers){try{draw(ctx,size,off,core);}catch(e){console.warn('Pip mod render error:',id,e);}}ctx.restore();}
   };
   let mods=[];
   const rowFor=id=>list.querySelector('[data-mod="'+id+'"]');
@@ -482,15 +482,39 @@ loader = r"""
     }catch(e){status.textContent='Не удалось загрузить каталог. Проверьте подключение и попробуйте снова.';console.warn('Pip mod repository error',e);}
   };
   document.getElementById('pip-mod-back').onclick=()=>panel.classList.remove('open');
+  // Restore enabled mods quietly on every simulator start, without forcing the repository panel open.
+  (async()=>{
+    try{
+      const response=await fetch(MANIFEST,{cache:'no-store'});if(!response.ok)return;
+      const data=await response.json();mods=Array.isArray(data.mods)?data.mods:[];
+      for(const mod of mods){
+        if(!active.has(mod.id)||cleanups.has(mod.id))continue;
+        try{
+          await ensureScript(mod,()=>{});
+          const factory=registrations.get(mod.id);
+          if(typeof factory!=='function')continue;
+          const cleanup=factory();
+          if(typeof cleanup==='function')cleanups.set(mod.id,cleanup);
+        }catch(e){console.warn('Could not restore Pip mod:',mod.id,e);}
+      }
+    }catch(e){console.warn('Pip mods restore unavailable',e);}
+  })();
 })();
 </script>
 """
 s = s.replace("</body>", footer + "\n" + loader + "\n</body>", 1)
 screen_hook = "  sctx.fill('evenodd');"
-screen_replacement = """  sctx.fill('evenodd');
-  if (window.PipMods && window.PipMods.drawScreen) window.PipMods.drawScreen(sctx, TEX, S);"""
+screen_replacement = """  if (window.PipMods && window.PipMods.drawScreen) window.PipMods.drawScreen(sctx, S, OFF, M);
+  sctx.fill('evenodd');"""
 if screen_hook not in s:
     raise SystemExit("Could not find screen render hook")
 s = s.replace(screen_hook, screen_replacement, 1)
+
+core_hook = "M._sim_init((Math.random() * 2 ** 31) >>> 0);"
+core_replacement = """M._sim_init((Math.random() * 2 ** 31) >>> 0);
+window.PipCore = M;"""
+if core_hook not in s:
+    raise SystemExit("Could not find simulator init hook")
+s = s.replace(core_hook, core_replacement, 1)
 
 p.write_text(s, encoding="utf-8")
