@@ -102,8 +102,7 @@ footer = """
   const canvas = view && view.querySelector('canvas');
   let watchScale = Number(localStorage.getItem('keypet.watchScale') || 1);
   const applyScale = () => {
-    if (canvas) canvas.style.setProperty('--pip-watch-scale', String(watchScale));
-    if (canvas) canvas.style.transform = 'scale(' + watchScale + ')';
+    document.documentElement.style.setProperty('--pip-watch-scale', String(watchScale));
     localStorage.setItem('keypet.watchScale', String(watchScale));
   };
   applyScale();
