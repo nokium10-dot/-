@@ -44,12 +44,12 @@ tasks.register('generatePhoneLifeTextures') {
                     double grain
                     if(id==0) grain=18*Math.sin((y%tile)*0.12 + Math.sin(x*0.017)*2.4)
                     else if(id==1) grain=14*Math.sin((x%tile)*0.22)
-                    else if(id==2) grain=10*Math.sin(x*.045)*Math.cos(y*.052)
-                    else if(id==3) grain=7*Math.sin((x+y)*.13)
-                    else if(id==4) grain=24*Math.sin((x%tile)*.012 + (y%tile)*.006)
-                    else if(id==5) grain=16*Math.sin(x*.031)*Math.cos(y*.027)
-                    else if(id==6) grain=9*Math.sin((x+y)*.08)
-                    else grain=18*Math.sin(x*.018+y*.013)
+                    else if(id==2) grain=10*Math.sin(x*0.045)*Math.cos(y*0.052)
+                    else if(id==3) grain=7*Math.sin((x+y)*0.13)
+                    else if(id==4) grain=24*Math.sin((x%tile)*0.012 + (y%tile)*0.006)
+                    else if(id==5) grain=16*Math.sin(x*0.031)*Math.cos(y*0.027)
+                    else if(id==6) grain=9*Math.sin((x+y)*0.08)
+                    else grain=18*Math.sin(x*0.018+y*0.013)
                     int n=random.nextInt(49)-24
                     int r=Math.max(0,Math.min(255,(int)(base[0]+grain+n)))
                     int g=Math.max(0,Math.min(255,(int)(base[1]+grain+n)))
