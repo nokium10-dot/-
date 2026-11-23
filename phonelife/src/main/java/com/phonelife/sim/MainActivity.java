@@ -7,6 +7,7 @@ import android.graphics.*;
 import android.view.*;
 import android.widget.*;
 import android.content.res.ColorStateList;
+import android.content.SharedPreferences;
 import android.opengl.GLSurfaceView;
 import android.opengl.GLES20;
 import android.opengl.Matrix;
@@ -19,8 +20,9 @@ public class MainActivity extends Activity {
     private GameView game;
     private TextView top, quest, prompt;
     private int money=18000, parts=0, usedPhones=0, screens=0, batteries=0, finishedPhones=0, reputation=0, day=1;
-    private int storyStep=0;
-    private boolean outside=false;
+    private int storyStep=0, upgrades=0, orders=0;
+    private boolean outside=false, scooterRiding=false;
+    private SharedPreferences save;
     private final String[] quests={
         "ЗАДАНИЕ 1/5 · Осмотри мастерскую и купи первые детали",
         "ЗАДАНИЕ 2/5 · Купи подержанный телефон и собери его на верстаке",
@@ -77,6 +79,8 @@ public class MainActivity extends Activity {
             return true;
         });
         setContentView(root);
+        save=getSharedPreferences("phone_life_save",MODE_PRIVATE);
+        loadGame();
         updateHud();
         Toast.makeText(this,"Добро пожаловать в PHONE LIFE. Осмотрись в мастерской.",Toast.LENGTH_LONG).show();
     }
@@ -88,12 +92,14 @@ public class MainActivity extends Activity {
         return b;
     }
     private void updateHud(){
-        top.setText(String.format(Locale.US,"₽ %,d     ДЕНЬ %d     РЕПУТАЦИЯ %d",money,day,reputation));
+        top.setText(String.format(Locale.US,"₽ %,d     ДЕНЬ %d     РЕПУТАЦИЯ %d     ЗАКАЗЫ %d",money,day,reputation,orders));
         quest.setText(quests[Math.min(storyStep,4)]);
         String near=game==null?"":game.getTargetHint();
         prompt.setText(near);
     }
     private void spend(int amount){money-=amount;}
+    private void saveGame(){if(save==null)return;save.edit().putInt("money",money).putInt("parts",parts).putInt("usedPhones",usedPhones).putInt("screens",screens).putInt("batteries",batteries).putInt("finishedPhones",finishedPhones).putInt("reputation",reputation).putInt("day",day).putInt("storyStep",storyStep).putInt("upgrades",upgrades).putInt("orders",orders).putBoolean("outside",outside).apply();}
+    private void loadGame(){money=save.getInt("money",18000);parts=save.getInt("parts",0);usedPhones=save.getInt("usedPhones",0);screens=save.getInt("screens",0);batteries=save.getInt("batteries",0);finishedPhones=save.getInt("finishedPhones",0);reputation=save.getInt("reputation",0);day=save.getInt("day",1);storyStep=Math.max(0,Math.min(4,save.getInt("storyStep",0)));upgrades=save.getInt("upgrades",0);orders=save.getInt("orders",0);outside=save.getBoolean("outside",false);game.setOutside(outside);}
     private void interact(){
         String target=game.getTarget();
         if("bench".equals(target)){
@@ -113,28 +119,32 @@ public class MainActivity extends Activity {
             outside=!outside; day++; game.setOutside(outside);
             if(outside){storyStep=Math.max(storyStep,3);Toast.makeText(this,"Ты вышел на улицу. Найди торговца у остановки.",Toast.LENGTH_LONG).show();}
             else Toast.makeText(this,"Ты вернулся в мастерскую.",Toast.LENGTH_SHORT).show();
+        } else if("scooter".equals(target)){
+            scooterRiding=!scooterRiding;game.setRiding(scooterRiding);
+            Toast.makeText(this,scooterRiding?"Самокат включён. Используй джойстик для поездки.":"Ты слез с самоката.",Toast.LENGTH_SHORT).show();
         } else if("vendor".equals(target)){
             if(outside){if(money>=3000){spend(3000);parts++;batteries++;reputation++;storyStep=4;Toast.makeText(this,"Торговец продал редкую батарею и набор деталей.",Toast.LENGTH_LONG).show();}else Toast.makeText(this,"Торговец: «Нужно ₽3 000 за комплект».",Toast.LENGTH_SHORT).show();}
         } else {
             Toast.makeText(this,"Подойди ближе к верстаку, клиенту, стеллажу или двери.",Toast.LENGTH_SHORT).show();
         }
+        saveGame();
         updateHud();
     }
     private void openShop(){
-        String[] items={"Набор деталей ×3 — ₽1 500","Подержанный смартфон — ₽4 500","Экран AMOLED — ₽2 500","Аккумулятор — ₽1 200"};
+        String[] items={"Набор деталей ×3 — ₽1 500","Подержанный смартфон — ₽4 500","Экран AMOLED — ₽2 500","Аккумулятор — ₽1 200","Улучшить мастерскую — ₽8 000","Заказ на срочный ремонт — ₽900"};
         new AlertDialog.Builder(this).setTitle("МАГАЗИН КОМПЛЕКТУЮЩИХ").setItems(items,(d,w)->{
-            int cost=w==0?1500:w==1?4500:w==2?2500:1200;
+            int cost=w==0?1500:w==1?4500:w==2?2500:w==3?1200:w==4?8000:900;
             if(money<cost){Toast.makeText(this,"Не хватает рублей.",Toast.LENGTH_SHORT).show();return;}
             spend(cost);
-            if(w==0)parts+=3; if(w==1)usedPhones++; if(w==2)screens++; if(w==3)batteries++;
+            if(w==0)parts+=3; if(w==1)usedPhones++; if(w==2)screens++; if(w==3)batteries++; if(w==4){upgrades++;reputation++;} if(w==5){orders++;parts++;}
             if(storyStep==0)storyStep=1;
-            updateHud();
+            saveGame();updateHud();
         }).setNegativeButton("ЗАКРЫТЬ",null).show();
     }
     private void openInventory(){
         String s="Подержанные телефоны: "+usedPhones+"\nГотовые телефоны: "+finishedPhones+
             "\nНаборы деталей: "+parts+"\nЭкраны: "+screens+"\nАккумуляторы: "+batteries+
-            "\n\nПодойди к верстаку и нажми «Действие», чтобы собрать телефон.";
+            "\nУлучшения мастерской: "+upgrades+"\nАктивные заказы: "+orders+"\n\nПрогресс сохраняется автоматически.";
         new AlertDialog.Builder(this).setTitle("РЮКЗАК И СКЛАД").setMessage(s).setPositiveButton("ПОНЯТНО",null).show();
     }
     private void showStory(){
@@ -169,13 +179,14 @@ public class MainActivity extends Activity {
         String getTarget(){return scene.target();}
         String getTargetHint(){return scene.targetHint();}
         void setAction(int a){scene.action=a;}
-        void setOutside(boolean b){scene.outside=b;scene.x=b?0:0;scene.z=b?8.5f:3.5f;scene.yaw=b?0:0;}
+        void setOutside(boolean b){scene.outside=b;scene.x=0;scene.z=b?8.5f:3.5f;scene.yaw=b?0:0;}
+        void setRiding(boolean b){scene.riding=b;}
     }
 
     static class Scene implements GLSurfaceView.Renderer {
         int program,pos,color,mvp; FloatBuffer cube;
         float[] proj=new float[16],view=new float[16],model=new float[16],vp=new float[16],out=new float[16];
-        volatile float moveX=0,moveY=0; volatile int action=0; volatile boolean outside=false;
+        volatile float moveX=0,moveY=0; volatile int action=0; volatile boolean outside=false, riding=false;
         float x=0,y=1.62f,z=3.5f,yaw=0,pitch=0; long last=System.nanoTime(); float anim=0;
         final String vs="attribute vec4 aPos; uniform mat4 uMvp; void main(){gl_Position=uMvp*aPos;}";
         final String fs="precision mediump float; uniform vec4 uColor; void main(){gl_FragColor=uColor;}";
@@ -198,14 +209,14 @@ public class MainActivity extends Activity {
         void turn(float dx,float dy){yaw+=dx;pitch=Math.max(-55,Math.min(55,pitch+dy));}
         String target(){
             String best="";float bd=99;
-            String[] names=outside?new String[]{"vendor","door"}:new String[]{"bench","shelf","customer","door"};
-            float[][] pts=outside?new float[][]{{0,0,12},{0,0,5}}:new float[][]{{0,0,-2.3f},{-3.6f,0,-2.5f},{2.7f,0,-2.4f},{4.1f,0,1.4f}};
+            String[] names=outside?new String[]{"scooter","vendor","door"}:new String[]{"bench","shelf","customer","door"};
+            float[][] pts=outside?new float[][]{{0,0,9.5f},{0,0,12},{0,0,5}}:new float[][]{{0,0,-2.3f},{-3.6f,0,-2.5f},{2.7f,0,-2.4f},{4.1f,0,1.4f}};
             float dx=(float)Math.sin(Math.toRadians(yaw)),dz=-(float)Math.cos(Math.toRadians(yaw));
             for(int i=0;i<names.length;i++){float vx=pts[i][0]-x,vz=pts[i][2]-z;float d=(float)Math.sqrt(vx*vx+vz*vz);float dot=(vx*dx+vz*dz)/Math.max(.001f,d);
                 if(d<3.0f&&dot>.25f&&d<bd){bd=d;best=names[i];}}
             return best;
         }
-        String targetHint(){String t=target();if("bench".equals(t))return "ВЕРСТАК · собрать или проверить смартфон";if("shelf".equals(t))return "СТЕЛЛАЖ · купить телефоны и комплектующие";if("customer".equals(t))return "КЛИЕНТ · поговорить и продать готовый телефон";if("door".equals(t))return outside?"ВОЗВРАЩЕНИЕ · мастерская":"ВЫХОД · улица и поездка";if("vendor".equals(t))return "ТОРГОВЕЦ · редкие детали";return "Осмотрись: найди верстак, стеллаж и клиента.";}
+        String targetHint(){String t=target();if("bench".equals(t))return "ВЕРСТАК · собрать или проверить смартфон";if("shelf".equals(t))return "СТЕЛЛАЖ · купить телефоны и комплектующие";if("customer".equals(t))return "КЛИЕНТ · поговорить и продать готовый телефон";if("door".equals(t))return outside?"ВОЗВРАЩЕНИЕ · мастерская":"ВЫХОД · улица и поездка";if("scooter".equals(t))return "САМОКАТ · сесть и поехать";if("vendor".equals(t))return "ТОРГОВЕЦ · редкие детали";return "Осмотрись: найди верстак, стеллаж и клиента.";}
         void box(float bx,float by,float bz,float sx,float sy,float sz,float rot,float r,float g,float b){
             Matrix.setIdentityM(model,0);Matrix.translateM(model,0,bx,by,bz);Matrix.rotateM(model,0,rot,0,1,0);Matrix.scaleM(model,0,sx,sy,sz);Matrix.multiplyMM(out,0,vp,0,model,0);
             GLES20.glUniformMatrix4fv(mvp,1,false,out,0);GLES20.glUniform4f(color,r,g,b,1);cube.position(0);GLES20.glVertexAttribPointer(pos,3,GLES20.GL_FLOAT,false,0,cube);GLES20.glEnableVertexAttribArray(pos);GLES20.glDrawArrays(GLES20.GL_TRIANGLES,0,36);
@@ -219,8 +230,8 @@ public class MainActivity extends Activity {
         @Override public void onDrawFrame(GL10 gl){
             long now=System.nanoTime();float dt=Math.min(.05f,(now-last)/1e9f);last=now;anim+=dt;
             float sy=(float)Math.sin(Math.toRadians(yaw)),cy=(float)Math.cos(Math.toRadians(yaw));
-            x+=(sy*moveY+cy*moveX)*dt*3.2f;z+=(-cy*moveY+sy*moveX)*dt*3.2f;
-            if(outside){x=Math.max(-6,Math.min(6,x));z=Math.max(6,Math.min(17,z));}else{x=Math.max(-4.45f,Math.min(4.45f,x));z=Math.max(-4.45f,Math.min(4.45f,z));}
+            float speed=riding?7.0f:(upgrades>0?3.7f:3.2f);x+=(sy*moveY+cy*moveX)*dt*speed;z+=(-cy*moveY+sy*moveX)*dt*speed;
+            if(outside){x=Math.max(-7,Math.min(7,x));z=Math.max(6,Math.min(32,z));}else{x=Math.max(-4.45f,Math.min(4.45f,x));z=Math.max(-4.45f,Math.min(4.45f,z));}
             float py=(float)Math.toRadians(pitch);float lookX=(float)Math.sin(Math.toRadians(yaw))*Math.cos(py),lookY=(float)Math.sin(py),lookZ=-(float)Math.cos(Math.toRadians(yaw))*Math.cos(py);
             Matrix.setLookAtM(view,0,x,y,z,x+lookX,y+lookY,z+lookZ,0,1,0);Matrix.multiplyMM(vp,0,proj,0,view,0);
             GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT|GLES20.GL_DEPTH_BUFFER_BIT);GLES20.glUseProgram(program);
@@ -280,9 +291,10 @@ public class MainActivity extends Activity {
             box(6,2.8f,13,1.4f,2.8f,4,0,.42f,.3f,.25f);
             for(int i=0;i<3;i++){box(-6,2+i*.9f,8.95f,.5f,.25f,.04f,0,.2f,.55f,.68f);box(6,2+i*.9f,10.95f,.5f,.25f,.04f,0,.2f,.55f,.68f);}
             // scooter and vendor
-            box(-2,.48f,9.5f,.75f,.07f,.18f,0,.1f,.13f,.16f);
-            box(-2.65f,.25f,9.5f,.22f,.22f,.22f,0,.035f,.04f,.05f);box(-1.35f,.25f,9.5f,.22f,.22f,.22f,0,.035f,.04f,.05f);
-            box(-2,.95f,9.5f,.06f,.52f,.06f,0,.1f,.65f,.52f);box(-2,1.22f,9.5f,.42f,.05f,.06f,0,.1f,.12f,.13f);
+            box(0,.48f,9.5f,.75f,.07f,.18f,0,.1f,.13f,.16f);
+            box(-.65f,.25f,9.5f,.22f,.22f,.22f,0,.035f,.04f,.05f);box(.65f,.25f,9.5f,.22f,.22f,.22f,0,.035f,.04f,.05f);
+            box(0,.95f,9.5f,.06f,.52f,.06f,0,.1f,.65f,.52f);box(0,1.22f,9.5f,.42f,.05f,.06f,0,.1f,.12f,.13f);
+            if(riding){box(0,1.05f,.55f,.42f,.06f,.12f,0,.08f,.12f,.14f);box(-.32f,.9f,.55f,.035f,.25f,.035f,0,.12f,.16f,.18f);box(.32f,.9f,.55f,.035f,.25f,.035f,0,.12f,.16f,.18f);}
             person(0,0,12,.9f,.18f,.62f);
             box(0,.9f,11.5f,.9f,.08f,.45f,0,.4f,.23f,.12f);
             phone(0,1.08f,11.5f,.55f,.8f);
