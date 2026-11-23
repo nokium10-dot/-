@@ -1,4 +1,4 @@
-# PHONE LIFE 3D — 1.2.0
+# PHONE LIFE 3D — 1.2.1
 
 Android first-person smartphone workshop simulator. Package: `com.phonelife.sim`.
 
