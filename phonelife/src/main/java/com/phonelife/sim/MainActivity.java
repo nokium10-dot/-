@@ -105,13 +105,13 @@ public class MainActivity extends Activity {
     private void interact(){
         String target=game.getTarget();
         if("bench".equals(target)){
-            if(usedPhones>0 && parts>0){
-                usedPhones--; parts--; finishedPhones++; money+=900; reputation++;
+            if(usedPhones>0 && parts>0 && screens>0 && batteries>0){
+                usedPhones--; parts--; screens--; batteries--; finishedPhones++; money+=900; reputation++;
                 game.setAction(1);
                 Toast.makeText(this,"Телефон собран и прошёл базовую проверку. +₽900",Toast.LENGTH_SHORT).show();
                 if(storyStep<2) storyStep=2;
             } else if(orders>0 && parts>0){
-                orders--; parts--; money+=1600; reputation+=2; day++;
+                orders--; parts--; money+=1600; reputation+=2; day++; completedRepairs++;
                 game.setAction(1);
                 Toast.makeText(this,"Заказ на ремонт выполнен. Клиент оплатил ₽1 600.",Toast.LENGTH_LONG).show();
             } else if(usedPhones>0) Toast.makeText(this,"Для сборки нужны набор деталей, экран AMOLED и аккумулятор. Проверь магазин и рюкзак.",Toast.LENGTH_LONG).show();
@@ -143,8 +143,8 @@ public class MainActivity extends Activity {
             int cost=w==0?1500:w==1?4500:w==2?2500:w==3?1200:w==4?8000:900;
             if(money<cost){Toast.makeText(this,"Не хватает рублей.",Toast.LENGTH_SHORT).show();return;}
             spend(cost);
-            if(w==0)parts+=3; if(w==1)usedPhones++; if(w==2)screens++; if(w==3)batteries++; if(w==4){upgrades++;reputation++;if(storyStep>=4){storyStep=5;Toast.makeText(this,"Мастерская улучшена! Ты открыл собственный сервис. История пройдена.",Toast.LENGTH_LONG).show();}} if(w==5){orders++;parts++;}\n            if(w==0 && storyStep==0) storyStep=1;
-            if(storyStep==0)storyStep=1;
+            if(w==0)parts+=3; if(w==1)usedPhones++; if(w==2)screens++; if(w==3)batteries++; if(w==4){upgrades++;reputation++;if(storyStep>=4){storyStep=5;Toast.makeText(this,"Мастерская улучшена! Ты открыл собственный сервис. История пройдена.",Toast.LENGTH_LONG).show();}} if(w==5){orders++;parts++;}
+            if(storyStep==0 && w==0)storyStep=1;
             saveGame();updateHud();
         }).setNegativeButton("ЗАКРЫТЬ",null).show();
     }
