@@ -1,0 +1,5 @@
+build/
+.gradle/
+local.properties
+signing/
+app/src/main/assets/pip/
