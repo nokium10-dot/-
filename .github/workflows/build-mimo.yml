@@ -1,0 +1,57 @@
+name: Build MIMO APK
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'mimo/**'
+      - 'mimo-mods/**'
+      - 'settings.gradle'
+      - '.github/workflows/build-mimo.yml'
+permissions:
+  contents: read
+jobs:
+  build-mimo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: NovikovVisuals/Pip-KeyPet
+          ref: main
+          path: mimo-src
+          submodules: recursive
+      - name: Install native build tools
+        run: sudo apt-get update && sudo apt-get install -y ninja-build cmake
+      - uses: mymindstorm/setup-emsdk@v14
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Build MIMO simulator
+        run: |
+          emcmake cmake -S mimo-src/sim -B mimo-src/build-web -G Ninja
+          cmake --build mimo-src/build-web --parallel
+          npm install --prefix /tmp/mimo-web three@0.170.0
+          mkdir -p mimo/src/main/assets/mimo/three/addons
+          cp mimo-src/sim/web/index.html mimo/src/main/assets/mimo/index.html
+          cp mimo-src/sim/web/pip.js mimo/src/main/assets/mimo/pip.js
+          cp mimo-src/sim/web/pip.wasm mimo/src/main/assets/mimo/pip.wasm
+          cp /tmp/mimo-web/node_modules/three/build/three.module.js mimo/src/main/assets/mimo/three.module.js
+          cp -R /tmp/mimo-web/node_modules/three/examples/jsm/. mimo/src/main/assets/mimo/three/addons/
+          sed -i 's#https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js#./three.module.js#g; s#https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/#./three/addons/#g' mimo/src/main/assets/mimo/index.html
+          python mimo/android/customize_sim.py
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Assemble MIMO APK
+        run: gradle :mimo:assembleDebug --no-daemon --stacktrace
+      - name: Publish APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MIMO-APK
+          path: mimo/build/outputs/apk/debug/mimo-debug.apk
+          if-no-files-found: error
+          retention-days: 30
