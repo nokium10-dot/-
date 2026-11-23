@@ -128,6 +128,27 @@ css = """
   }
 """
 s = s.replace("</style>", css + "\n</style>", 1)
+# Prevent short display-off transitions from flashing the whole screen black.
+if "function blitScreen() {" not in s:
+    raise SystemExit("Could not find blitScreen function")
+s = s.replace("function blitScreen() {", "let pipDisplayOffSince = 0;\\nfunction blitScreen() {", 1)
+old_off = "if (!M._sim_display_on()) { sctx.fillStyle = '#000'; sctx.fillRect(0, 0, TEX, TEX); return; }"
+new_off = """if (!M._sim_display_on()) {
+    if (!pipDisplayOffSince) pipDisplayOffSince = performance.now();
+    if (performance.now() - pipDisplayOffSince > 420) {
+      sctx.fillStyle = '#000'; sctx.fillRect(0, 0, TEX, TEX);
+    }
+    return;
+  }
+  pipDisplayOffSince = 0;"""
+if old_off not in s:
+    raise SystemExit("Could not find display-off clear logic")
+s = s.replace(old_off, new_off, 1)
+
+# Limit WebGL pixel density on high-density Android screens to reduce GPU load.
+s = s.replace("renderer.setPixelRatio(devicePixelRatio);",
+              "renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5));", 1)
+
 
 markup = """
 
