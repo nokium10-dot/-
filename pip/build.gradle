@@ -3,11 +3,13 @@ plugins {
 }
 
 android {
+    // Keep the source namespace unchanged; use a distinct install ID so
+    // PipAltVer can coexist with the original Pip-KeyPet app.
     namespace 'com.pip.keypet'
     compileSdk 35
 
     defaultConfig {
-        applicationId 'com.pip.keypet'
+        applicationId 'com.pipaltver.mobile'
         minSdk 26
         targetSdk 35
         versionCode 1
