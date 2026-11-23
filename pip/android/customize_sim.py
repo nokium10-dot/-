@@ -318,5 +318,5 @@ loader = r"""
 })();
 </script>
 """
-s = s.replace("</body>", loader + "\\n</body>", 1)
+s = s.replace("</body>", footer + "\n" + loader + "\n</body>", 1)
 p.write_text(s, encoding="utf-8")
