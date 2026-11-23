@@ -31,6 +31,9 @@ jobs:
           path: pip-src
           submodules: recursive
 
+      - name: Validate Android customization scripts
+        run: python -m py_compile pip/android/customize_sim.py pipglass/android/liquid_glass.py
+
       - name: Set up Emscripten
         uses: mymindstorm/setup-emsdk@v14
 
