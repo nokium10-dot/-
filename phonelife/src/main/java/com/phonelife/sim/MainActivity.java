@@ -85,7 +85,8 @@ public class MainActivity extends Activity {
         Toast.makeText(this,"Добро пожаловать в PHONE LIFE. Осмотрись в мастерской.",Toast.LENGTH_LONG).show();
     }
 
-    @Override protected void onPause(){saveGame();super.onPause();}\n    @Override protected void onStop(){saveGame();super.onStop();}
+    @Override protected void onPause(){saveGame();super.onPause();}
+    @Override protected void onStop(){saveGame();super.onStop();}
 
     private Button makeButton(String text,int color){
         Button b=new Button(this); b.setText(text); b.setTextSize(11); b.setAllCaps(false); b.setTextColor(Color.WHITE);
