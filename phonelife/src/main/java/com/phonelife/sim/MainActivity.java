@@ -234,7 +234,7 @@ public class MainActivity extends Activity {
             float sy=(float)Math.sin(Math.toRadians(yaw)),cy=(float)Math.cos(Math.toRadians(yaw));
             float speed=riding?7.0f:3.2f;x+=(sy*moveY+cy*moveX)*dt*speed;z+=(-cy*moveY+sy*moveX)*dt*speed;
             if(outside){x=Math.max(-7,Math.min(7,x));z=Math.max(6,Math.min(32,z));}else{x=Math.max(-4.45f,Math.min(4.45f,x));z=Math.max(-4.45f,Math.min(4.45f,z));}
-            float py=(float)Math.toRadians(pitch);float lookX=(float)Math.sin(Math.toRadians(yaw))*Math.cos(py),lookY=(float)Math.sin(py),lookZ=-(float)Math.cos(Math.toRadians(yaw))*Math.cos(py);
+            float py=(float)Math.toRadians(pitch);float lookX=(float)(Math.sin(Math.toRadians(yaw))*Math.cos(py)),lookY=(float)Math.sin(py),lookZ=(float)(-Math.cos(Math.toRadians(yaw))*Math.cos(py));
             Matrix.setLookAtM(view,0,x,y,z,x+lookX,y+lookY,z+lookZ,0,1,0);Matrix.multiplyMM(vp,0,proj,0,view,0);
             GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT|GLES20.GL_DEPTH_BUFFER_BIT);GLES20.glUseProgram(program);
             if(!outside) drawWorkshop(); else drawStreet();
