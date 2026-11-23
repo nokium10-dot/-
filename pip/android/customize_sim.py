@@ -9,6 +9,42 @@ css = """
   body { display:block; background:#000 !important; }
   #view { position:absolute; inset:0; width:100%; height:100%; min-width:0; background:#000; touch-action:none; }
   #view canvas { display:block; width:100%; height:100%; outline:none; touch-action:none; -webkit-tap-highlight-color:rgba(0,0,0,0); }
+
+  :root { --alt-accent:#91a7ff; --alt-accent2:#75e5d0; --alt-panel:rgba(11,13,25,.76); }
+  body::after { content:""; position:fixed; inset:0; z-index:8; pointer-events:none;
+    background:radial-gradient(ellipse at 50% 46%, transparent 36%, rgba(20,25,52,.18) 76%, rgba(0,0,0,.56) 100%); }
+  #pip-alt-hud { position:fixed; z-index:12; top:max(14px,env(safe-area-inset-top)); left:50%;
+    transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; gap:3px;
+    width:max-content; max-width:54vw; pointer-events:none; text-align:center; }
+  #pip-alt-hud .brand { color:#f4f5ff; font:700 11px/1.2 system-ui,sans-serif; letter-spacing:3px;
+    text-shadow:0 2px 12px #000; white-space:nowrap; }
+  #pip-alt-hud .sub { color:#a9b3d5; font:9px/1.2 system-ui,sans-serif; letter-spacing:1.5px; }
+  #pip-alt-hud .online { display:inline-flex; align-items:center; gap:5px; margin-top:4px;
+    padding:4px 9px; border:1px solid #91a7ff35; border-radius:20px; background:#090c1bbd;
+    color:#b9c8ff; font:9px system-ui,sans-serif; letter-spacing:1px; }
+  #pip-alt-hud .online i { width:5px; height:5px; border-radius:50%; background:#75e5d0;
+    box-shadow:0 0 9px #75e5d0; animation:alt-pulse 1.8s ease-in-out infinite; }
+  @keyframes alt-pulse { 50% { opacity:.35; box-shadow:0 0 2px #75e5d0; } }
+  #pip-alt-status { position:fixed; z-index:12; left:13px; bottom:calc(max(17px,env(safe-area-inset-bottom)) + 68px);
+    display:flex; flex-direction:column; gap:3px; padding:10px 12px; border:1px solid #a4b4ff2b;
+    border-radius:14px; background:linear-gradient(135deg,rgba(14,18,39,.88),rgba(6,8,18,.78));
+    box-shadow:0 8px 26px #0008; pointer-events:none; backdrop-filter:blur(14px); }
+  #pip-alt-status strong { color:#f1f3ff; font:650 10px system-ui,sans-serif; letter-spacing:1.2px; }
+  #pip-alt-status span { color:#9ca9cb; font:9px system-ui,sans-serif; }
+  #pip-alt-status .meter { width:78px; height:3px; border-radius:4px; margin-top:4px; background:#252b45; overflow:hidden; }
+  #pip-alt-status .meter i { display:block; height:100%; width:82%; background:linear-gradient(90deg,var(--alt-accent),var(--alt-accent2)); border-radius:4px; }
+  #pip-settings { background:radial-gradient(ellipse at 80% 0%,#171c3a 0%,#080910 48%,#030407 100%); }
+  #pip-settings .settings-head h3 { letter-spacing:.3px; }
+  #pip-settings .settings-card, #pip-mod-panel .mod-row { border-color:#879cff30; background:linear-gradient(145deg,#11162a,#090b13); }
+  #pip-settings button, #pip-mod-panel button { transition:transform .16s ease,border-color .16s ease,background .16s ease; }
+  #pip-settings button:active, #pip-mod-panel button:active { transform:scale(.97); }
+  #pip-settings .swatch:focus-visible, #pip-settings button:focus-visible { outline:2px solid var(--alt-accent); outline-offset:2px; }
+  #pip-actions-trigger { border-color:#91a7ff66; background:linear-gradient(145deg,#20294b,#101426);
+    box-shadow:0 0 0 5px #91a7ff10,0 8px 30px #000c; }
+  #pip-actions-sheet { border-color:#91a7ff44; background:linear-gradient(160deg,#11162b,#06070d 70%); }
+  #pip-actions-sheet button { border-color:#879cff35; background:#171d34; }
+  #pip-actions-sheet button:active { background:#27345b; }
+
   #hint, #panel { display:none !important; }
   #pip-settings-trigger {
     position:fixed; z-index:20; top:max(12px, env(safe-area-inset-top)); left:12px;
@@ -94,6 +130,17 @@ css = """
 s = s.replace("</style>", css + "\n</style>", 1)
 
 markup = """
+
+<div id="pip-alt-hud" aria-hidden="true">
+  <div class="brand">PIP / ALTVER</div>
+  <div class="sub">DIGITAL COMPANION SYSTEM</div>
+  <div class="online"><i></i> CORE ONLINE</div>
+</div>
+<div id="pip-alt-status" aria-hidden="true">
+  <strong>ALTVER OS · READY</strong>
+  <span>Связь с Пипом активна</span>
+  <div class="meter"><i></i></div>
+</div>
 <button id="pip-settings-trigger" aria-label="Настройки" title="Настройки">⚙</button>
 <section id="pip-settings" aria-label="Настройки Пипа">
   <div class="settings-head">
