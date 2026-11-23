@@ -127,51 +127,31 @@ css = """
     #pip-moods-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
   }
 """
-s = s.replace("
-  /* Pip Glass 2.0: fluid sheets, tactile controls and compact game cards */
-  #pip-actions-sheet, #pip-mod-panel {
-    transform-origin:50% 100%;
-    will-change:transform,opacity,filter;
-  }
-  #pip-actions-sheet.open { display:block; animation:pip-sheet-in 480ms cubic-bezier(.18,.88,.22,1.12) both; }
-  #pip-actions-sheet.closing { display:block; pointer-events:none; animation:pip-sheet-out 230ms cubic-bezier(.4,0,1,1) both; }
-  #pip-mod-panel.open { display:block; animation:pip-panel-in 430ms cubic-bezier(.18,.88,.22,1.08) both; }
-  @keyframes pip-sheet-in {
-    from { opacity:0; transform:translateY(42px) scale(.97); filter:blur(10px); }
-    72% { opacity:1; transform:translateY(-3px) scale(1.006); filter:blur(0); }
-    to { opacity:1; transform:translateY(0) scale(1); filter:blur(0); }
-  }
-  @keyframes pip-sheet-out { to { opacity:0; transform:translateY(24px) scale(.985); filter:blur(6px); } }
-  @keyframes pip-panel-in {
-    from { opacity:0; transform:translateY(24px) scale(.975); filter:blur(8px); }
-    to { opacity:1; transform:translateY(0) scale(1); filter:blur(0); }
-  }
-  #pip-actions-sheet .action-grid button, #pip-actions-sheet #pip-moods-grid button,
-  #pip-actions-sheet .game-card button {
-    transition:transform .22s cubic-bezier(.2,.8,.2,1), background .22s ease, border-color .22s ease;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 5px 16px rgba(0,0,0,.16);
-  }
-  #pip-actions-sheet button:active { transform:scale(.94); }
-  #pip-actions-sheet .game-card {
-    margin-top:10px; padding:14px; border-radius:19px;
-    border:1px solid rgba(190,207,255,.22);
-    background:linear-gradient(145deg,rgba(255,255,255,.105),rgba(255,255,255,.025));
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 12px 30px rgba(0,0,0,.18);
-    backdrop-filter:blur(20px);
-  }
-  #pip-actions-sheet .game-card strong { display:block; color:#f4f6ff; font-size:14px; margin-bottom:5px; }
-  #pip-actions-sheet .game-card p { color:#aebbd9; font-size:11px; line-height:1.4; margin:0 0 10px; }
-  #pip-actions-sheet .game-card button { min-height:38px; padding:0 12px; border-radius:12px; }
-  #pip-game-status { min-height:18px; color:#c5d4f5; font-size:12px; margin-top:9px; }
-  #pip-game-choices { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:6px; margin-top:8px; }
-  #pip-game-choices button { min-width:0; padding:0; }
-  #pip-actions-trigger { transition:transform .28s cubic-bezier(.2,.8,.2,1),box-shadow .28s ease; }
-  #pip-actions-trigger:active { transform:translateX(-50%) scale(.91); }
-  @media (prefers-reduced-motion:reduce) {
-    #pip-actions-sheet.open,#pip-actions-sheet.closing,#pip-mod-panel.open,#pip-settings.open,#pip-settings.closing { animation-duration:1ms !important; }
-  }
+s = s.replace("</style>", css + "\n</style>", 1);
 
-</style>", css + "\n</style>", 1)
+
+
+
+s = s.replace("</style>", """
+  /* Pip Glass smooth panel transitions */
+  #pip-actions-sheet.open { animation:pip-sheet-in 420ms cubic-bezier(.2,.85,.2,1) both; }
+  #pip-actions-sheet.closing { display:block; pointer-events:none; animation:pip-sheet-out 220ms ease-in both; }
+  #pip-mod-panel.open { animation:pip-panel-in 400ms cubic-bezier(.2,.85,.2,1) both; }
+  @keyframes pip-sheet-in {
+    from { opacity:0; transform:translateY(36px) scale(.98); filter:blur(7px); }
+    to { opacity:1; transform:translateY(0) scale(1); filter:blur(0); }
+  }
+  @keyframes pip-sheet-out {
+    to { opacity:0; transform:translateY(22px) scale(.985); filter:blur(4px); }
+  }
+  @keyframes pip-panel-in {
+    from { opacity:0; transform:translateY(24px) scale(.98); filter:blur(6px); }
+    to { opacity:1; transform:translateY(0) scale(1); filter:blur(0); }
+  }
+  @media (prefers-reduced-motion:reduce) {
+    #pip-actions-sheet.open,#pip-actions-sheet.closing,#pip-mod-panel.open { animation-duration:1ms !important; }
+  }
+""" + "</style>", 1)
 
 markup = """
 
