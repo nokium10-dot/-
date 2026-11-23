@@ -1,21 +1,20 @@
 from pathlib import Path
-import re
 
 p = Path("pip/src/main/assets/pip/index.html")
 s = p.read_text(encoding="utf-8")
 
 css = """
-  /* AMOLED black background and centered virtual watch. */
-  html, body { width:100%; height:100%; min-height:0; overflow:hidden; background:#000 !important; }
+  * { -webkit-tap-highlight-color: rgba(0,0,0,0) !important; -webkit-touch-callout:none; user-select:none; -webkit-user-select:none; }
+  html, body { width:100%; height:100%; min-height:0; overflow:hidden; background:#000 !important; overscroll-behavior:none; }
   body { display:block; background:#000 !important; }
-  #view { position:absolute; inset:0; width:100%; height:100%; min-width:0; background:#000; touch-action:pan-x pan-y; }
-  #view canvas { width:100%; height:100%; transform:scale(var(--pip-watch-scale, 1)); transform-origin:50% 50%; }
+  #view { position:absolute; inset:0; width:100%; height:100%; min-width:0; background:#000; touch-action:none; }
+  #view canvas { display:block; width:100%; height:100%; outline:none; touch-action:none; -webkit-tap-highlight-color:rgba(0,0,0,0); }
   #hint, #panel { display:none !important; }
   #pip-settings-trigger {
     position:fixed; z-index:20; top:max(12px, env(safe-area-inset-top)); left:12px;
     width:44px; height:44px; border-radius:15px; border:1px solid #ffffff24;
     color:#fff; background:#101014; font-size:22px; display:grid; place-items:center;
-    box-shadow:0 5px 24px #0008; -webkit-tap-highlight-color:transparent;
+    box-shadow:0 5px 24px #0008;
   }
   #pip-settings {
     display:none; position:fixed; z-index:30; inset:0; box-sizing:border-box;
@@ -34,6 +33,35 @@ css = """
   #pip-settings .assist, #pip-settings .reset-zoom { width:100%; margin-top:12px; }
   #pip-settings .hint { color:#777b89; font-size:12px; margin-top:18px; line-height:1.5; }
   #pip-settings .settings-card { padding:15px; border:1px solid #24242c; border-radius:17px; background:#08080b; }
+  #pip-actions-trigger {
+    position:fixed; z-index:21; left:50%; bottom:max(16px, env(safe-area-inset-bottom));
+    transform:translateX(-50%); width:54px; height:54px; border-radius:19px;
+    border:1px solid #ffffff2b; background:#15151b; color:#fff; font-size:25px;
+    display:grid; place-items:center; box-shadow:0 6px 28px #000b;
+  }
+  #pip-actions-sheet {
+    display:none; position:fixed; z-index:25; left:0; right:0; bottom:0;
+    max-height:72vh; overflow-y:auto; box-sizing:border-box;
+    padding:18px 16px calc(env(safe-area-inset-bottom) + 88px);
+    border:1px solid #292932; border-bottom:0; border-radius:24px 24px 0 0;
+    background:#08080b; color:#f4f4f8; font:14px system-ui,sans-serif;
+    box-shadow:0 -14px 45px #000b;
+  }
+  #pip-actions-sheet.open { display:block; }
+  #pip-actions-sheet .sheet-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  #pip-actions-sheet h3 { margin:0; font-size:17px; }
+  #pip-actions-close { width:36px; height:36px; border-radius:12px; font-size:21px; }
+  #pip-actions-sheet .action-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
+  #pip-actions-sheet button { min-height:44px; border-radius:12px; border:1px solid #292932; background:#15151b; color:#f4f4f8; }
+  #pip-actions-sheet .action-grid button { padding:8px 3px; font-size:12px; }
+  #pip-actions-sheet .section-title { color:#aeb2c2; margin:18px 0 9px; font-size:12px; }
+  #pip-moods-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; }
+  #pip-moods-grid button { padding:7px 4px; font-size:12px; min-width:0; }
+  #pip-moods-grid button.cur { border-color:#a879ff; background:#21152f; }
+  @media (max-width:380px) {
+    #pip-actions-sheet .action-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    #pip-moods-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  }
 """
 s = s.replace("</style>", css + "\n</style>", 1)
 
@@ -58,12 +86,31 @@ markup = """
   </div>
   <button class="assist" id="pip-assistant-role">Выбрать Пипа помощником</button>
   <button class="reset-zoom" id="pip-reset-zoom">Сбросить размер часов</button>
-  <div class="hint">На главном экране можно менять размер часов, сводя или разводя два пальца. Игры и приложения открываются кнопками на корпусе часов: верхняя — меню / открыть, нижняя — назад.</div>
+  <div class="hint">Сведите или разведите два пальца на самих часах, чтобы изменить их размер.</div>
+</section>
+<button id="pip-actions-trigger" aria-label="Действия и эмоции Пипа" title="Действия и эмоции">☻</button>
+<section id="pip-actions-sheet" aria-label="Действия и эмоции Пипа">
+  <div class="sheet-head"><h3>Пип</h3><button id="pip-actions-close" aria-label="Закрыть">×</button></div>
+  <div class="section-title">Действия</div>
+  <div class="action-grid">
+    <button id="pip-action-feed">🍎<br>Покормить</button>
+    <button id="pip-action-play">🎾<br>Поиграть</button>
+    <button id="pip-action-pet">♡<br>Погладить</button>
+    <button id="pip-action-poke">☝<br>Тык</button>
+  </div>
+  <div class="section-title">Эмоции</div>
+  <div id="pip-moods-grid"></div>
 </section>
 """
-s = s.replace('<div id="view">', '<div id="view">', 1)
 s = s.replace('<div id="panel">', markup + '\n<div id="panel">', 1)
 
+# Keep the HTML canvas at full size; pinch zoom now changes the camera distance.
+s = s.replace(
+    '#view canvas { width:100%; height:100%; transform:scale(var(--pip-watch-scale, 1)); transform-origin:50% 50%; }',
+    '#view canvas { display:block; width:100%; height:100%; outline:none; touch-action:none; }'
+)
+
+# Apply case colors and retain the simulator bridge.
 needle = "window.sim = { M, tgt, cur, dev, advance };"
 replacement = """window.setPipCaseColor = (bodyColor, trimColor) => {
   brushed.color.set(bodyColor);
@@ -77,6 +124,103 @@ if (savedBody && savedTrim) { brushed.color.set(savedBody); polished.color.set(s
 window.sim = { M, tgt, cur, dev, advance, setCaseColor: window.setPipCaseColor };"""
 if needle not in s:
     raise SystemExit("Could not find simulator export hook")
+s = s.replace(needle, replacement, 1)
+
+# Put pinch zoom on the 3D renderer: changing camDist resizes the physical watch model only.
+needle = """const canvas = renderer.domElement;
+canvas.addEventListener('pointerdown', e => {
+  canvas.setPointerCapture(e.pointerId);"""
+replacement = """const canvas = renderer.domElement;
+let pinchStartDistance = 0, pinchStartCamDist = camDist, pinching = false;
+const touchDistance = touches => Math.hypot(
+  touches[0].clientX - touches[1].clientX,
+  touches[0].clientY - touches[1].clientY
+);
+canvas.addEventListener('touchstart', e => {
+  if (e.touches.length === 2) {
+    e.preventDefault();
+    pinching = true;
+    pinchStartDistance = touchDistance(e.touches);
+    pinchStartCamDist = camDist;
+    if (touch) M._sim_touch(touch[0], touch[1], 0);
+    touch = null;
+    drag = null;
+  }
+}, { passive:false });
+canvas.addEventListener('touchmove', e => {
+  if (pinching && e.touches.length === 2) {
+    e.preventDefault();
+    const ratio = touchDistance(e.touches) / Math.max(1, pinchStartDistance);
+    camDist = THREE.MathUtils.clamp(pinchStartCamDist / ratio, 90, 320);
+  }
+}, { passive:false });
+const endPinch = e => {
+  if (e.touches.length < 2) {
+    pinching = false;
+    pinchStartDistance = 0;
+  }
+};
+canvas.addEventListener('touchend', endPinch, { passive:false });
+canvas.addEventListener('touchcancel', endPinch, { passive:false });
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+canvas.addEventListener('pip-reset-zoom', () => { camDist = 175; });
+canvas.addEventListener('pointerdown', e => {
+  if (pinching) return;
+  canvas.setPointerCapture(e.pointerId);"""
+if needle not in s:
+    raise SystemExit("Could not find renderer pointer hook")
+s = s.replace(needle, replacement, 1)
+s = s.replace(
+    "canvas.addEventListener('pointermove', e => {\n  if (touch && !drag) {",
+    "canvas.addEventListener('pointermove', e => {\n  if (pinching) return;\n  if (touch && !drag) {",
+    1
+)
+
+# Add each original simulator mood to the new bottom sheet as a working button.
+needle = "  moodsEl.append(b);"
+replacement = """  moodsEl.append(b);
+  const pipMoodGrid = document.getElementById('pip-moods-grid');
+  if (pipMoodGrid) {
+    const moodButton = b.cloneNode(true);
+    moodButton.onclick = () => M._sim_set_mood(i);
+    pipMoodGrid.append(moodButton);
+  }"""
+if needle not in s:
+    raise SystemExit("Could not find mood button creation")
+s = s.replace(needle, replacement, 1)
+
+# Wire the new bottom sheet to the same simulator actions as the original controls.
+needle = "muteBtn.onclick = () => M._sim_volume(M._sim_get_volume() > 0 ? 0 : 0.8);"
+replacement = """muteBtn.onclick = () => M._sim_volume(M._sim_get_volume() > 0 ? 0 : 0.8);
+
+const pipSheet = document.getElementById('pip-actions-sheet');
+document.getElementById('pip-actions-trigger').onclick = () => pipSheet.classList.toggle('open');
+document.getElementById('pip-actions-close').onclick = () => pipSheet.classList.remove('open');
+document.getElementById('pip-action-feed').onclick = () => M._sim_action(0);
+document.getElementById('pip-action-play').onclick = () => M._sim_action(1);
+document.getElementById('pip-action-poke').onclick = () => {
+  M._sim_touch(233, 233, 1);
+  setTimeout(() => M._sim_touch(233, 233, 0), 90);
+};
+document.getElementById('pip-action-pet').onclick = () => {
+  M._sim_touch(150, 240, 1);
+  let step = 0;
+  const timer = setInterval(() => {
+    step++;
+    M._sim_touch(step % 2 ? 320 : 150, 240 + (step % 3) * 5, 1);
+    if (step >= 16) {
+      clearInterval(timer);
+      M._sim_touch(150, 240, 0);
+    }
+  }, 65);
+};
+document.addEventListener('pointerdown', e => {
+  if (!pipSheet.contains(e.target) && e.target.id !== 'pip-actions-trigger') {
+    pipSheet.classList.remove('open');
+  }
+});"""
+if needle not in s:
+    raise SystemExit("Could not find audio controls hook")
 s = s.replace(needle, replacement, 1)
 
 footer = """
@@ -97,42 +241,9 @@ footer = """
   document.getElementById('pip-assistant-role').addEventListener('click', () => {
     if (window.PipAndroid && window.PipAndroid.chooseAssistant) window.PipAndroid.chooseAssistant();
   });
-
-  const view = document.getElementById('view');
-  const canvas = view && view.querySelector('canvas');
-  let watchScale = Number(localStorage.getItem('keypet.watchScale') || 1);
-  const applyScale = () => {
-    document.documentElement.style.setProperty('--pip-watch-scale', String(watchScale));
-    localStorage.setItem('keypet.watchScale', String(watchScale));
-  };
-  applyScale();
-  let startDistance = 0;
-  let startScale = watchScale;
-  const distance = touches => {
-    const dx = touches[0].clientX - touches[1].clientX;
-    const dy = touches[0].clientY - touches[1].clientY;
-    return Math.hypot(dx, dy);
-  };
-  view.addEventListener('touchstart', event => {
-    if (event.touches.length === 2) {
-      event.preventDefault();
-      startDistance = distance(event.touches);
-      startScale = watchScale;
-    }
-  }, { passive:false });
-  view.addEventListener('touchmove', event => {
-    if (event.touches.length === 2 && startDistance > 0) {
-      event.preventDefault();
-      watchScale = Math.max(0.55, Math.min(1.8, startScale * distance(event.touches) / startDistance));
-      applyScale();
-    }
-  }, { passive:false });
-  view.addEventListener('touchend', event => {
-    if (event.touches.length < 2) startDistance = 0;
-  }, { passive:false });
   document.getElementById('pip-reset-zoom').addEventListener('click', () => {
-    watchScale = 1;
-    applyScale();
+    const canvas = document.querySelector('#view canvas');
+    if (canvas) canvas.dispatchEvent(new CustomEvent('pip-reset-zoom'));
   });
 })();
 </script>
