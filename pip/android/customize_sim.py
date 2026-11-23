@@ -270,7 +270,7 @@ footer = """
 })();
 </script>
 """
-s = s.replace("
+loader = r"""
 <script>
 (() => {
   const MANIFEST='https://raw.githubusercontent.com/nokium10-dot/-/main/pip-mods/manifest.json';
@@ -278,10 +278,7 @@ s = s.replace("
   const panel=document.getElementById('pip-mod-panel'), list=document.getElementById('pip-mod-list'), status=document.getElementById('pip-mod-status');
   const active=new Set(JSON.parse(localStorage.getItem('pip.mods.active')||'[]'));
   const loaded=new Set(), cleanups=new Map(), registrations=new Map();
-  window.PipMods={
-    has:id=>registrations.has(id),
-    register:(id,enable)=>registrations.set(id,enable)
-  };
+  window.PipMods={has:id=>registrations.has(id),register:(id,enable)=>registrations.set(id,enable)};
   const persist=()=>localStorage.setItem('pip.mods.active',JSON.stringify([...active]));
   async function ensureScript(mod){
     if(registrations.has(mod.id))return;
@@ -297,10 +294,7 @@ s = s.replace("
     persist();renderOne(mod);
   }
   let mods=[];
-  function renderOne(mod){
-    const row=list.querySelector('[data-mod="'+mod.id+'"]');if(!row)return;
-    const b=row.querySelector('button');b.classList.toggle('active',active.has(mod.id));b.textContent=active.has(mod.id)?'Установлен ✓':'Установить';
-  }
+  function renderOne(mod){const row=list.querySelector('[data-mod="'+mod.id+'"]');if(!row)return;const b=row.querySelector('button');b.classList.toggle('active',active.has(mod.id));b.textContent=active.has(mod.id)?'Установлен ✓':'Установить';}
   function render(){
     list.replaceChildren();
     mods.forEach(mod=>{
@@ -312,8 +306,17 @@ s = s.replace("
       row.append(title,desc,b);list.append(row);
     });
   }
-  document.getElementById('pip-mod-repo').onclick=async()=>{panel.classList.add('open');status.textContent='Загрузка каталога…';try{const r=await fetch(MANIFEST,{cache:'no-store'});if(!r.ok)throw new Error('Каталог недоступен');const data=await r.json();mods=data.mods||[];render();status.textContent='Выберите моды. Их можно включать одновременно.';for(const m of mods)if(active.has(m.id)){try{await ensureScript(m);const cleanup=registrations.get(m.id)();if(typeof cleanup==='function')cleanups.set(m.id,cleanup);}catch(e){active.delete(m.id);persist();status.textContent='Один из сохранённых модов не загрузился: '+e.message;}}}catch(e){status.textContent='Не удалось загрузить каталог. Проверьте интернет и откройте раздел снова.';}};
+  document.getElementById('pip-mod-repo').onclick=async()=>{
+    panel.classList.add('open');status.textContent='Загрузка каталога…';
+    try{
+      const r=await fetch(MANIFEST,{cache:'no-store'});if(!r.ok)throw new Error('Каталог недоступен');
+      const data=await r.json();mods=data.mods||[];render();status.textContent='Выберите моды. Их можно включать одновременно.';
+      for(const m of mods)if(active.has(m.id)){try{await ensureScript(m);const cleanup=registrations.get(m.id)();if(typeof cleanup==='function')cleanups.set(m.id,cleanup);}catch(e){active.delete(m.id);persist();status.textContent='Один из сохранённых модов не загрузился: '+e.message;}}
+    }catch(e){status.textContent='Не удалось загрузить каталог. Проверьте интернет и откройте раздел снова.';}
+  };
   document.getElementById('pip-mod-back').onclick=()=>panel.classList.remove('open');
 })();
-</script>\n</body>", footer + "\n</body>", 1)
+</script>
+"""
+s = s.replace("</body>", loader + "\\n</body>", 1)
 p.write_text(s, encoding="utf-8")
