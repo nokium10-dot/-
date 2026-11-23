@@ -5,6 +5,7 @@ on:
     paths:
       - 'app/**'
       - 'pip/**'
+      - 'pip-icon.jpg.b64'
       - 'build.gradle'
       - 'settings.gradle'
       - '.github/workflows/build.yml'
@@ -50,6 +51,14 @@ jobs:
           cp /tmp/pip-web/node_modules/three/build/three.module.js pip/src/main/assets/pip/three.module.js
           cp -R /tmp/pip-web/node_modules/three/examples/jsm/. pip/src/main/assets/pip/three/addons/
           sed -i 's#https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js#./three.module.js#g; s#https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/#./three/addons/#g' pip/src/main/assets/pip/index.html
+
+      - name: Install custom Pip launcher icon
+        run: |
+          mkdir -p pip/src/main/res/mipmap-mdpi pip/src/main/res/mipmap-hdpi pip/src/main/res/mipmap-xhdpi pip/src/main/res/mipmap-xxhdpi pip/src/main/res/mipmap-xxxhdpi
+          base64 --decode pip-icon.jpg.b64 > /tmp/pip-icon.jpg
+          for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            cp /tmp/pip-icon.jpg "pip/src/main/res/mipmap-${density}/ic_launcher.jpg"
+          done
 
       - name: Set up Java
         uses: actions/setup-java@v4
