@@ -470,7 +470,7 @@ loader = r"""
       const data=await response.json();mods=Array.isArray(data.mods)?data.mods:[];
       render();status.textContent='Выберите моды. Установка показывает ход скачивания и подключения.';
       for(const mod of mods){
-        if(active.has(mod.id)){
+        if(active.has(mod.id)&&!cleanups.has(mod.id)){
           try{
             await ensureScript(mod,(pct,label)=>setProgress(mod,pct,label));
             const cleanup=registrations.get(mod.id)();
