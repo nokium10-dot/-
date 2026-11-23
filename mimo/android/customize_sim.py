@@ -368,8 +368,8 @@ footer = """
 loader = r"""
 <script>
 (() => {
-  const MANIFEST='https://raw.githubusercontent.com/nokium10-dot/-/main/mimo-mods/manifest.json';
-  const BASE='https://raw.githubusercontent.com/nokium10-dot/-/main/mimo-mods/';
+  const MANIFEST='https://raw.githubusercontent.com/nokium10-dot/-/mimo-app/mimo-mods/manifest.json';
+  const BASE='https://raw.githubusercontent.com/nokium10-dot/-/mimo-app/mimo-mods/';
   const panel=document.getElementById('mimo-mod-panel');
   const list=document.getElementById('mimo-mod-list');
   const status=document.getElementById('mimo-mod-status');
