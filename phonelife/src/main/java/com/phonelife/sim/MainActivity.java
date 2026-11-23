@@ -366,7 +366,8 @@ public class MainActivity extends Activity {
         }
         void drawStreet(){
             box(0,-.16f,33,8,.16f,27,0,.23f,.27f,.29f);
-            box(0,0,7,8,.02f,2,0,.28f,.3f,.31f);\n            box(0,.01f,33,8,.025f,27,0,.28f,.3f,.31f);
+            box(0,0,7,8,.02f,2,0,.28f,.3f,.31f);
+            box(0,.01f,33,8,.025f,27,0,.28f,.3f,.31f);
             for(int i=-6;i<=6;i+=3){box(i,.02f,11,.045f,.015f,8,0,.85f,.75f,.3f);}
             // buildings
             box(-6,2.4f,11,1.4f,2.4f,5,0,.34f,.38f,.43f);
