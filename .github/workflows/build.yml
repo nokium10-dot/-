@@ -5,6 +5,7 @@ on:
     paths:
       - 'app/**'
       - 'pip/**'
+      - 'phonelife/**'
       - 'build.gradle'
       - 'settings.gradle'
       - '.github/workflows/build.yml'
@@ -94,6 +95,8 @@ jobs:
             app/build/outputs/apk/debug/app-debug.apk
             pip/build/outputs/apk/release/pip-release.apk
             pip/build/outputs/apk/debug/pip-debug.apk
+            phonelife/build/outputs/apk/release/phonelife-release.apk
+            phonelife/build/outputs/apk/debug/phonelife-debug.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -110,6 +113,11 @@ jobs:
           else
             cp pip/build/outputs/apk/debug/pip-debug.apk dist/Pip-KeyPet.apk
           fi
+          if [ -f phonelife/build/outputs/apk/release/phonelife-release.apk ]; then
+            cp phonelife/build/outputs/apk/release/phonelife-release.apk dist/PHONE-LIFE-3D.apk
+          else
+            cp phonelife/build/outputs/apk/debug/phonelife-debug.apk dist/PHONE-LIFE-3D.apk
+          fi
 
       - name: Publish latest APKs
         uses: softprops/action-gh-release@v2
@@ -122,6 +130,7 @@ jobs:
           files: |
             dist/MatrixWall-Pro.apk
             dist/Pip-KeyPet.apk
+            dist/PHONE-LIFE-3D.apk
           overwrite_files: true
           fail_on_unmatched_files: true
           token: ${{ github.token }}
