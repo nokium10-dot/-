@@ -42,6 +42,10 @@ css = """
   #pip-mod-panel .mod-toggle { min-height:36px; padding:0 14px; }
   #pip-mod-panel .mod-toggle.active { border-color:#70cfa6; background:#14251e; }
   #pip-mod-status { color:#969aaa; font-size:12px; margin:8px 0 14px; }
+  #pip-mod-panel .mod-progress { height:5px; border-radius:8px; background:#292932; overflow:hidden; margin:9px 0 5px; display:none; }
+  #pip-mod-panel .mod-progress.visible { display:block; }
+  #pip-mod-panel .mod-progress i { display:block; width:0; height:100%; border-radius:8px; background:linear-gradient(90deg,#6a8cff,#72e0c0); transition:width .16s ease; }
+  #pip-mod-panel .mod-progress-label { min-height:15px; color:#9da3b5; font-size:11px; margin-bottom:7px; }
   #pip-settings .hint { color:#777b89; font-size:12px; margin-top:18px; line-height:1.5; }
   #pip-settings .settings-card { padding:15px; border:1px solid #24242c; border-radius:17px; background:#08080b; }
   #pip-actions-trigger {
@@ -275,44 +279,137 @@ loader = r"""
 (() => {
   const MANIFEST='https://raw.githubusercontent.com/nokium10-dot/-/main/pip-mods/manifest.json';
   const BASE='https://raw.githubusercontent.com/nokium10-dot/-/main/pip-mods/';
-  const panel=document.getElementById('pip-mod-panel'), list=document.getElementById('pip-mod-list'), status=document.getElementById('pip-mod-status');
-  const active=new Set(JSON.parse(localStorage.getItem('pip.mods.active')||'[]'));
-  const loaded=new Set(), cleanups=new Map(), registrations=new Map();
-  window.PipMods={has:id=>registrations.has(id),register:(id,enable)=>registrations.set(id,enable)};
-  const persist=()=>localStorage.setItem('pip.mods.active',JSON.stringify([...active]));
-  async function ensureScript(mod){
+  const panel=document.getElementById('pip-mod-panel');
+  const list=document.getElementById('pip-mod-list');
+  const status=document.getElementById('pip-mod-status');
+  const readActive=()=>{try{const v=JSON.parse(localStorage.getItem('pip.mods.active')||'[]');return Array.isArray(v)?v.filter(x=>typeof x==='string'):[];}catch(_){return[];}};
+  const active=new Set(readActive());
+  const loaded=new Set(),cleanups=new Map(),registrations=new Map(),screenLayers=new Map();
+  const persist=()=>{try{localStorage.setItem('pip.mods.active',JSON.stringify([...active]));}catch(_){status.textContent='Не удалось сохранить список модов на устройстве.';}};
+  window.PipMods={
+    has:id=>registrations.has(id),
+    register:(id,factory)=>{if(typeof id==='string'&&typeof factory==='function')registrations.set(id,factory);},
+    addScreenLayer:(id,draw)=>{if(typeof id==='string'&&typeof draw==='function')screenLayers.set(id,draw);},
+    removeScreenLayer:id=>screenLayers.delete(id),
+    drawScreen:(ctx,size)=>{for(const [id,draw] of screenLayers){try{draw(ctx,size);}catch(e){console.warn('Pip mod render error:',id,e);}}}
+  };
+  let mods=[];
+  const rowFor=id=>list.querySelector('[data-mod="'+id+'"]');
+  function setProgress(mod,pct,label){
+    const row=rowFor(mod.id);if(!row)return;
+    const bar=row.querySelector('.mod-progress'),fill=bar.querySelector('i'),caption=row.querySelector('.mod-progress-label');
+    bar.classList.add('visible');fill.style.width=Math.max(0,Math.min(100,pct))+'%';caption.textContent=label||Math.round(pct)+'%';
+  }
+  function finishProgress(mod,label){
+    setProgress(mod,100,label);
+    const row=rowFor(mod.id);if(row){const bar=row.querySelector('.mod-progress');bar.classList.remove('visible');}
+  }
+  async function fetchTextWithProgress(url,onProgress){
+    const response=await fetch(url,{cache:'no-store'});
+    if(!response.ok)throw new Error('Сервер вернул ошибку '+response.status);
+    const total=Number(response.headers.get('content-length'))||0;
+    if(!response.body||!response.body.getReader){const text=await response.text();onProgress(76,'Загрузка завершена');return text;}
+    const reader=response.body.getReader(),chunks=[];let received=0;
+    while(true){
+      const part=await reader.read();if(part.done)break;
+      chunks.push(part.value);received+=part.value.length;
+      const pct=total?Math.min(76,Math.round(received/total*76)):Math.min(70,12+Math.floor(received/2048)*4);
+      onProgress(pct,'Скачивание · '+(total?Math.round(received/total*100)+'%':'получено '+Math.round(received/1024)+' КБ'));
+    }
+    const all=new Uint8Array(received);let offset=0;
+    for(const chunk of chunks){all.set(chunk,offset);offset+=chunk.length;}
+    onProgress(78,'Проверка файла');
+    return new TextDecoder('utf-8').decode(all);
+  }
+  async function ensureScript(mod,onProgress){
     if(registrations.has(mod.id))return;
     if(!loaded.has(mod.id)){
-      await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=BASE+mod.entry;script.onload=resolve;script.onerror=()=>reject(new Error('Не удалось загрузить '+mod.name));document.head.append(script);});
+      const source=await fetchTextWithProgress(BASE+encodeURIComponent(mod.entry),onProgress);
+      onProgress(84,'Подготовка мода');
+      const blob=new Blob([source+'\n//# sourceURL=pip-mod-'+mod.id+'.js'],{type:'text/javascript'});
+      const objectUrl=URL.createObjectURL(blob);
+      try{
+        await new Promise((resolve,reject)=>{
+          const script=document.createElement('script');script.async=true;script.src=objectUrl;
+          script.onload=()=>{script.remove();resolve();};
+          script.onerror=()=>{script.remove();reject(new Error('Не удалось запустить файл мода'));};
+          document.head.append(script);
+        });
+      }finally{URL.revokeObjectURL(objectUrl);}
       loaded.add(mod.id);
     }
-    if(!registrations.has(mod.id))throw new Error('Мод не зарегистрировал себя');
+    if(!registrations.has(mod.id))throw new Error('Файл загружен, но мод не зарегистрировался');
+  }
+  function renderOne(mod){
+    const row=rowFor(mod.id);if(!row)return;
+    const button=row.querySelector('.mod-toggle');
+    const enabled=active.has(mod.id);
+    button.classList.toggle('active',enabled);
+    button.textContent=enabled?'Установлен ✓':'Установить';
   }
   async function setMod(mod,on){
-    if(on){await ensureScript(mod);const cleanup=registrations.get(mod.id)();if(typeof cleanup==='function')cleanups.set(mod.id,cleanup);active.add(mod.id);}
-    else{const cleanup=cleanups.get(mod.id);if(cleanup)cleanup();cleanups.delete(mod.id);active.delete(mod.id);}
-    persist();renderOne(mod);
+    if(on){
+      await ensureScript(mod,(pct,label)=>setProgress(mod,pct,label));
+      setProgress(mod,88,'Установка · подключение эффекта');
+      const factory=registrations.get(mod.id);
+      if(typeof factory!=='function')throw new Error('Не найден установщик мода');
+      const cleanup=factory();
+      if(typeof cleanup==='function')cleanups.set(mod.id,cleanup);
+      active.add(mod.id);persist();
+      setProgress(mod,100,'Готово · мод установлен');
+    }else{
+      setProgress(mod,35,'Отключение мода');
+      const cleanup=cleanups.get(mod.id);
+      if(cleanup){try{cleanup();}catch(e){console.warn('Pip mod cleanup error:',mod.id,e);}}
+      cleanups.delete(mod.id);active.delete(mod.id);persist();
+      setProgress(mod,100,'Мод отключён');
+    }
+    renderOne(mod);
   }
-  let mods=[];
-  function renderOne(mod){const row=list.querySelector('[data-mod="'+mod.id+'"]');if(!row)return;const b=row.querySelector('button');b.classList.toggle('active',active.has(mod.id));b.textContent=active.has(mod.id)?'Установлен ✓':'Установить';}
   function render(){
     list.replaceChildren();
     mods.forEach(mod=>{
       const row=document.createElement('div');row.className='mod-row';row.dataset.mod=mod.id;
       const title=document.createElement('strong');title.textContent=mod.name+' · '+mod.version;
       const desc=document.createElement('p');desc.textContent=mod.description;
-      const b=document.createElement('button');b.className='mod-toggle';b.textContent=active.has(mod.id)?'Установлен ✓':'Установить';
-      b.onclick=async()=>{b.disabled=true;try{await setMod(mod,!active.has(mod.id));status.textContent='Изменения сохранены на этом устройстве.';}catch(e){status.textContent=e.message;}finally{b.disabled=false;}};
-      row.append(title,desc,b);list.append(row);
+      const progress=document.createElement('div');progress.className='mod-progress';
+      const fill=document.createElement('i');progress.append(fill);
+      const label=document.createElement('div');label.className='mod-progress-label';label.textContent=active.has(mod.id)?'Установлен на этом устройстве':'';
+      const button=document.createElement('button');button.className='mod-toggle';button.textContent=active.has(mod.id)?'Установлен ✓':'Установить';
+      button.onclick=async()=>{
+        const turnOn=!active.has(mod.id);button.disabled=true;status.textContent=turnOn?'Загружаем и устанавливаем '+mod.name+'…':'Отключаем '+mod.name+'…';
+        try{
+          await setMod(mod,turnOn);
+          status.textContent=turnOn?'Мод установлен. Его можно использовать вместе с другими.':'Мод отключён.';
+          label.textContent=turnOn?'Установлено успешно':'Отключено';
+        }catch(e){
+          status.textContent='Не удалось установить '+mod.name+': '+(e&&e.message?e.message:'неизвестная ошибка');
+          label.textContent='Ошибка установки · можно попробовать снова';
+          console.error('Pip mod install failed:',mod.id,e);
+          if(turnOn){const cleanup=cleanups.get(mod.id);if(cleanup){try{cleanup();}catch(_){ }cleanups.delete(mod.id);}active.delete(mod.id);persist();}
+        }finally{button.disabled=false;renderOne(mod);}
+      };
+      row.append(title,desc,progress,label,button);list.append(row);
     });
   }
   document.getElementById('pip-mod-repo').onclick=async()=>{
-    panel.classList.add('open');status.textContent='Загрузка каталога…';
+    panel.classList.add('open');status.textContent='Подключаемся к репозиторию…';
     try{
-      const r=await fetch(MANIFEST,{cache:'no-store'});if(!r.ok)throw new Error('Каталог недоступен');
-      const data=await r.json();mods=data.mods||[];render();status.textContent='Выберите моды. Их можно включать одновременно.';
-      for(const m of mods)if(active.has(m.id)){try{await ensureScript(m);const cleanup=registrations.get(m.id)();if(typeof cleanup==='function')cleanups.set(m.id,cleanup);}catch(e){active.delete(m.id);persist();status.textContent='Один из сохранённых модов не загрузился: '+e.message;}}
-    }catch(e){status.textContent='Не удалось загрузить каталог. Проверьте интернет и откройте раздел снова.';}
+      const response=await fetch(MANIFEST,{cache:'no-store'});
+      if(!response.ok)throw new Error('Каталог недоступен ('+response.status+')');
+      const data=await response.json();mods=Array.isArray(data.mods)?data.mods:[];
+      render();status.textContent='Выберите моды. Установка показывает ход скачивания и подключения.';
+      for(const mod of mods){
+        if(active.has(mod.id)){
+          try{
+            await ensureScript(mod,(pct,label)=>setProgress(mod,pct,label));
+            const cleanup=registrations.get(mod.id)();
+            if(typeof cleanup==='function')cleanups.set(mod.id,cleanup);
+            finishProgress(mod,'Активен');
+          }catch(e){active.delete(mod.id);persist();status.textContent='Не удалось восстановить '+mod.name+'. Его можно установить заново.';}
+        }
+      }
+    }catch(e){status.textContent='Не удалось загрузить каталог. Проверьте подключение и попробуйте снова.';console.warn('Pip mod repository error',e);}
   };
   document.getElementById('pip-mod-back').onclick=()=>panel.classList.remove('open');
 })();
