@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "repository": "MIMO Mods",
+  "version": "1.0.0",
+  "mods": [
+    {
+      "id": "comet-trail",
+      "name": "Кометный след",
+      "version": "1.0.0",
+      "description": "Мягкие световые дуги вокруг MIMO.",
+      "category": "Атмосфера",
+      "entry": "comet-trail.js"
+    },
+    {
+      "id": "star-dust",
+      "name": "Звёздная пыль",
+      "version": "1.0.0",
+      "description": "Небольшие мерцающие звёзды на фоне.",
+      "category": "Атмосфера",
+      "entry": "star-dust.js"
+    },
+    {
+      "id": "mood-aura",
+      "name": "Аура настроения",
+      "version": "1.0.0",
+      "description": "Меняющееся мягкое свечение персонажа.",
+      "category": "Внешний вид",
+      "entry": "mood-aura.js"
+    },
+    {
+      "id": "soft-tap",
+      "name": "Мягкие касания",
+      "version": "1.0.0",
+      "description": "Световые круги при касании экрана.",
+      "category": "Эффекты",
+      "entry": "soft-tap.js"
+    },
+    {
+      "id": "night-sky",
+      "name": "Ночное небо",
+      "version": "1.0.0",
+      "description": "Тёмный звёздный оттенок оформления.",
+      "category": "Темы",
+      "entry": "night-sky.js"
+    }
+  ]
+}
