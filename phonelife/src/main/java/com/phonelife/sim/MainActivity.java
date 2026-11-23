@@ -297,7 +297,7 @@ public class MainActivity extends Activity {
             long now=System.nanoTime();float dt=Math.min(.05f,(now-last)/1e9f);last=now;anim+=dt;
             float sy=(float)Math.sin(Math.toRadians(yaw)),cy=(float)Math.cos(Math.toRadians(yaw));
             float speed=riding?7.0f:3.2f;x+=(sy*moveY+cy*moveX)*dt*speed;z+=(-cy*moveY+sy*moveX)*dt*speed;
-            if(outside){x=Math.max(-7,Math.min(7,x));z=Math.max(6,Math.min(32,z));}else{x=Math.max(-4.45f,Math.min(4.45f,x));z=Math.max(-4.45f,Math.min(4.45f,z));}
+            if(outside){x=Math.max(-8.2f,Math.min(8.2f,x));z=Math.max(6,Math.min(58,z));}else{x=Math.max(-4.45f,Math.min(4.45f,x));z=Math.max(-4.45f,Math.min(4.45f,z));}
             float py=(float)Math.toRadians(pitch);float lookX=(float)(Math.sin(Math.toRadians(yaw))*Math.cos(py)),lookY=(float)Math.sin(py),lookZ=(float)(-Math.cos(Math.toRadians(yaw))*Math.cos(py));
             Matrix.setLookAtM(view,0,x,y,z,x+lookX,y+lookY,z+lookZ,0,1,0);Matrix.multiplyMM(vp,0,proj,0,view,0);
             GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT|GLES20.GL_DEPTH_BUFFER_BIT);GLES20.glUseProgram(program);
@@ -365,8 +365,8 @@ public class MainActivity extends Activity {
             box(px+.14f*sc,ground+.35f*sc,pz,.13f*sc,.35f*sc,.14f*sc,0,.12f,.15f,.2f);
         }
         void drawStreet(){
-            box(0,-.16f,11,8,.16f,9,0,.23f,.27f,.29f);
-            box(0,0,7,8,.02f,2,0,.28f,.3f,.31f);
+            box(0,-.16f,33,8,.16f,27,0,.23f,.27f,.29f);
+            box(0,0,7,8,.02f,2,0,.28f,.3f,.31f);\n            box(0,.01f,33,8,.025f,27,0,.28f,.3f,.31f);
             for(int i=-6;i<=6;i+=3){box(i,.02f,11,.045f,.015f,8,0,.85f,.75f,.3f);}
             // buildings
             box(-6,2.4f,11,1.4f,2.4f,5,0,.34f,.38f,.43f);
@@ -381,8 +381,8 @@ public class MainActivity extends Activity {
             box(0,.9f,14.5f,.9f,.08f,.45f,0,.4f,.23f,.12f);
             phone(0,1.08f,14.5f,.55f,.8f);
             // sidewalks, storefronts, parked cars, trees, street furniture
-            box(-7.15f,.02f,26,1.0f,.06f,18,0,.48f,.49f,.46f);
-            box(7.15f,.02f,26,1.0f,.06f,18,0,.48f,.49f,.46f);
+            box(-7.15f,.02f,33,1.0f,.06f,27,0,.48f,.49f,.46f);
+            box(7.15f,.02f,33,1.0f,.06f,27,0,.48f,.49f,.46f);
             for(int row=0;row<4;row++){
                 float zz=19+row*8;
                 box(-6,2.7f,zz,1.45f,2.7f,3.2f,0,.34f+row*.025f,.38f,.44f);
