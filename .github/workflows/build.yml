@@ -113,11 +113,13 @@ jobs:
           else
             cp pip/build/outputs/apk/debug/pip-debug.apk dist/Pip-KeyPet.apk
           fi
-          if [ -f phonelife/build/outputs/apk/release/phonelife-release.apk ]; then
-            cp phonelife/build/outputs/apk/release/phonelife-release.apk dist/PHONE-LIFE-3D.apk
-          else
-            cp phonelife/build/outputs/apk/debug/phonelife-debug.apk dist/PHONE-LIFE-3D.apk
+          PHONE_LIFE_APK="$(find phonelife/build/outputs/apk -type f -name '*.apk' 2>/dev/null | sort | head -n 1)"
+          if [ -z "$PHONE_LIFE_APK" ]; then
+            echo "PhoneLife APK was not produced. Contents of build/outputs:"
+            find phonelife/build/outputs -maxdepth 5 -type f -print || true
+            exit 1
           fi
+          cp "$PHONE_LIFE_APK" dist/PHONE-LIFE-3D.apk
 
       - name: Publish latest APKs
         uses: softprops/action-gh-release@v2
