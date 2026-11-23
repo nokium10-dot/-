@@ -52,7 +52,7 @@
         ctx.beginPath();ctx.moveTo(-w/2,0);ctx.quadraticCurveTo(0,h*.35,w/2,0);ctx.strokeStyle='#ffffff';ctx.lineWidth=Math.max(2,size*.008);ctx.stroke();
       }else if(current.kind==='flat'){
         ctx.beginPath();ctx.moveTo(-w/2,0);ctx.quadraticCurveTo(0,h*current.curve,w/2,0);ctx.strokeStyle='#ffffff';ctx.lineWidth=Math.max(2.5,size*.009);ctx.stroke();
-        if(mood==='angry'||mood==='furious'||mood==='rage'){ctx.beginPath();ctx.moveTo(-w*.12,-h*.12);ctx.lineTo(-w*.02,h*.05);ctx.lineTo(w*.08,-h*.1);ctx.strokeStyle='#f3c1c5';ctx.lineWidth=Math.max(1.5,size*.004);ctx.stroke();}
+        if(mood==='angry'||mood==='furious'||mood==='rage'){ctx.beginPath();ctx.moveTo(-w*.12,-h*.12);ctx.lineTo(-w*.02,h*.05);ctx.lineTo(w*.08,-h*.1);ctx.strokeStyle='#ffffff';ctx.lineWidth=Math.max(1.5,size*.004);ctx.stroke();}
       }else{
         ctx.beginPath();ctx.moveTo(-w/2,0);ctx.bezierCurveTo(-w*.27,h*(.85+current.curve),w*.27,h*(.85+current.curve),w/2,0);
         ctx.strokeStyle='#ffffff';ctx.lineWidth=Math.max(2.5,size*.009);ctx.stroke();
