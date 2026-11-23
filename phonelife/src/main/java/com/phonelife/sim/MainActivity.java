@@ -3,6 +3,7 @@ package com.phonelife.sim;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.os.Bundle;
+import android.os.Handler;
 import android.graphics.*;
 import android.view.*;
 import android.widget.*;
@@ -18,7 +19,9 @@ import javax.microedition.khronos.opengles.GL10;
 
 public class MainActivity extends Activity {
     private GameView game;
-    private TextView top, quest, prompt;
+    private TextView top, quest, prompt, gameMessage;
+    private final Handler messageHandler=new Handler();
+    private final Runnable hideGameMessage=()->{if(gameMessage!=null)gameMessage.animate().alpha(0f).setDuration(250).withEndAction(()->gameMessage.setVisibility(View.GONE)).start();};
     private int money=18000, parts=0, usedPhones=0, screens=0, batteries=0, finishedPhones=0, reputation=0, day=1;
     private int storyStep=0, upgrades=0, orders=0, totalSales=0, completedRepairs=0;
     private boolean outside=false, scooterRiding=false;
@@ -47,6 +50,14 @@ public class MainActivity extends Activity {
         hud.addView(top); hud.addView(quest); hud.addView(prompt);
         FrameLayout.LayoutParams hp=new FrameLayout.LayoutParams(-1,-2,Gravity.TOP);
         root.addView(hud,hp);
+        gameMessage=new TextView(this);
+        gameMessage.setTextColor(Color.WHITE); gameMessage.setTextSize(15); gameMessage.setTypeface(null,1);
+        gameMessage.setGravity(Gravity.CENTER); gameMessage.setPadding(dp(20),dp(12),dp(20),dp(12));
+        android.graphics.drawable.GradientDrawable msgBg=new android.graphics.drawable.GradientDrawable();
+        msgBg.setColor(0xE6192938); msgBg.setCornerRadius(dp(12)); msgBg.setStroke(dp(1),0xCCDB9B45);
+        gameMessage.setBackground(msgBg); gameMessage.setVisibility(View.GONE); gameMessage.setAlpha(0f);
+        FrameLayout.LayoutParams mp=new FrameLayout.LayoutParams(-2,-2,Gravity.BOTTOM|Gravity.CENTER_HORIZONTAL);
+        mp.setMargins(dp(16),0,dp(16),dp(92)); root.addView(gameMessage,mp);
         TextView crosshair=new TextView(this);crosshair.setText("＋");crosshair.setTextColor(0xDDFFFFFF);crosshair.setTextSize(23);crosshair.setTypeface(null,1);crosshair.setShadowLayer(4,0,0,Color.BLACK);crosshair.setGravity(Gravity.CENTER);
         FrameLayout.LayoutParams cp=new FrameLayout.LayoutParams(dp(42),dp(42),Gravity.CENTER);root.addView(crosshair,cp);
 
@@ -83,13 +94,13 @@ public class MainActivity extends Activity {
         save=getSharedPreferences("phone_life_save",MODE_PRIVATE);
         loadGame();
         updateHud();
-        Toast.makeText(this,"Добро пожаловать в PHONE LIFE. Осмотрись в мастерской.",Toast.LENGTH_LONG).show();
+        showGameMessage("Добро пожаловать в PHONE LIFE. Осмотрись в мастерской.");
     }
 
     @Override protected void onPause(){saveGame();super.onPause();}
     @Override protected void onStop(){saveGame();super.onStop();}
 
-    private int dp(float v){return (int)(v*getResources().getDisplayMetrics().density+.5f);}
+    private void showGameMessage(String message){\n        messageHandler.removeCallbacks(hideGameMessage); gameMessage.setText(message); gameMessage.setVisibility(View.VISIBLE); gameMessage.setAlpha(0f); gameMessage.animate().alpha(1f).setDuration(180).start(); messageHandler.postDelayed(hideGameMessage,3200);\n    }\n    private int dp(float v){return (int)(v*getResources().getDisplayMetrics().density+.5f);}
     private Button makeButton(String text,int color){
         Button b=new Button(this); b.setText(text); b.setTextSize(12); b.setTypeface(null,1); b.setAllCaps(false); b.setTextColor(Color.WHITE);
         b.setMinHeight(dp(52)); b.setPadding(dp(8),0,dp(8),0);
@@ -111,25 +122,25 @@ public class MainActivity extends Activity {
         if("bench".equals(target)){
             if(usedPhones>0 && parts>0 && screens>0 && batteries>0){startBenchJob(true,0);return;}
             else if(orders>0 && parts>0){startBenchJob(false,0);return;}
-            else if(usedPhones>0) Toast.makeText(this,"Для сборки нужны набор деталей, экран AMOLED и аккумулятор. Проверь магазин и рюкзак.",Toast.LENGTH_LONG).show();
-            else if(orders>0) Toast.makeText(this,"Для ремонта нужен набор деталей. Купи его в магазине.",Toast.LENGTH_SHORT).show();
-            else Toast.makeText(this,"Сначала купи подержанный телефон или возьми заказ на ремонт.",Toast.LENGTH_SHORT).show();
+            else if(usedPhones>0) showGameMessage("Для сборки нужны набор деталей, экран AMOLED и аккумулятор. Проверь магазин и рюкзак.");
+            else if(orders>0) showGameMessage("Для ремонта нужен набор деталей. Купи его в магазине.");
+            else showGameMessage("Сначала купи подержанный телефон или возьми заказ на ремонт.");
         } else if("customer".equals(target)){
-            if(finishedPhones>0){finishedPhones--;money+=6500;reputation+=2;totalSales++;game.setAction(2);Toast.makeText(this,"Клиент доволен. +₽6 500",Toast.LENGTH_SHORT).show();storyStep=Math.max(storyStep,3);}
-            else Toast.makeText(this,"Клиент: «Ищу хороший восстановленный смартфон». Сначала собери один.",Toast.LENGTH_LONG).show();
+            if(finishedPhones>0){finishedPhones--;money+=6500;reputation+=2;totalSales++;game.setAction(2);showGameMessage("Клиент доволен. +₽6 500");storyStep=Math.max(storyStep,3);}
+            else showGameMessage("Клиент: «Ищу хороший восстановленный смартфон». Сначала собери один.");
         } else if("shelf".equals(target)){
             openShop();
         } else if("door".equals(target)){
             outside=!outside; day++; game.setOutside(outside);
-            if(outside){storyStep=Math.max(storyStep,3);Toast.makeText(this,"Ты вышел на улицу. Найди торговца у остановки.",Toast.LENGTH_LONG).show();}
-            else Toast.makeText(this,"Ты вернулся в мастерскую.",Toast.LENGTH_SHORT).show();
+            if(outside){storyStep=Math.max(storyStep,3);showGameMessage("Ты вышел на улицу. Найди торговца у остановки.");}
+            else showGameMessage("Ты вернулся в мастерскую.");
         } else if("scooter".equals(target)){
             scooterRiding=!scooterRiding;game.setRiding(scooterRiding);
-            Toast.makeText(this,scooterRiding?"Самокат включён. Используй джойстик для поездки.":"Ты слез с самоката.",Toast.LENGTH_SHORT).show();
+            showGameMessage(scooterRiding?"Самокат включён. Используй джойстик для поездки.":"Ты слез с самоката.");
         } else if("vendor".equals(target)){
-            if(outside){if(money>=3000){spend(3000);parts++;batteries++;screens++;reputation++;storyStep=4;Toast.makeText(this,"Торговец продал редкую батарею и набор деталей.",Toast.LENGTH_LONG).show();}else Toast.makeText(this,"Торговец: «Нужно ₽3 000 за комплект».",Toast.LENGTH_SHORT).show();}
+            if(outside){if(money>=3000){spend(3000);parts++;batteries++;screens++;reputation++;storyStep=4;showGameMessage("Торговец продал редкую батарею и набор деталей.");}else showGameMessage("Торговец: «Нужно ₽3 000 за комплект».");}
         } else {
-            Toast.makeText(this,"Подойди ближе к верстаку, клиенту, стеллажу или двери.",Toast.LENGTH_SHORT).show();
+            showGameMessage("Подойди ближе к верстаку, клиенту, стеллажу или двери.");
         }
         saveGame();
         updateHud();
@@ -144,13 +155,13 @@ public class MainActivity extends Activity {
             .setPositiveButton(step==2?"ЗАВЕРШИТЬ":"ДАЛЕЕ",(d,w)->{
                 if(step<2){startBenchJob(assembly,step+1);return;}
                 if(assembly){
-                    if(usedPhones<=0||parts<=0||screens<=0||batteries<=0){Toast.makeText(this,"Не хватает комплектующих.",Toast.LENGTH_SHORT).show();return;}
+                    if(usedPhones<=0||parts<=0||screens<=0||batteries<=0){showGameMessage("Не хватает комплектующих.");return;}
                     usedPhones--;parts--;screens--;batteries--;finishedPhones++;money+=900;reputation++;storyStep=Math.max(storyStep,2);
-                    Toast.makeText(this,"Смартфон собран и прошёл тестирование. +₽900",Toast.LENGTH_LONG).show();
+                    showGameMessage("Смартфон собран и прошёл тестирование. +₽900");
                 }else{
-                    if(orders<=0||parts<=0){Toast.makeText(this,"Заказ или детали уже недоступны.",Toast.LENGTH_SHORT).show();return;}
+                    if(orders<=0||parts<=0){showGameMessage("Заказ или детали уже недоступны.");return;}
                     orders--;parts--;money+=1600;reputation+=2;day++;completedRepairs++;
-                    Toast.makeText(this,"Ремонт завершён. Оплата ₽1 600.",Toast.LENGTH_LONG).show();
+                    showGameMessage("Ремонт завершён. Оплата ₽1 600.");
                 }
                 game.setAction(1);saveGame();updateHud();
             }).setNegativeButton("ОТЛОЖИТЬ",null).show();
@@ -160,9 +171,9 @@ public class MainActivity extends Activity {
         String[] items={"Набор деталей ×3 — ₽1 500","Подержанный смартфон — ₽4 500","Экран AMOLED — ₽2 500","Аккумулятор — ₽1 200","Улучшить мастерскую — ₽8 000","Заказ на срочный ремонт — ₽900"};
         new AlertDialog.Builder(this).setTitle("МАГАЗИН КОМПЛЕКТУЮЩИХ").setItems(items,(d,w)->{
             int cost=w==0?1500:w==1?4500:w==2?2500:w==3?1200:w==4?8000:900;
-            if(money<cost){Toast.makeText(this,"Не хватает рублей.",Toast.LENGTH_SHORT).show();return;}
+            if(money<cost){showGameMessage("Не хватает рублей.");return;}
             spend(cost);
-            if(w==0)parts+=3; if(w==1)usedPhones++; if(w==2)screens++; if(w==3)batteries++; if(w==4){upgrades++;reputation++;if(storyStep>=4){storyStep=5;Toast.makeText(this,"Мастерская улучшена! Ты открыл собственный сервис. История пройдена.",Toast.LENGTH_LONG).show();}} if(w==5){orders++;parts++;}
+            if(w==0)parts+=3; if(w==1)usedPhones++; if(w==2)screens++; if(w==3)batteries++; if(w==4){upgrades++;reputation++;if(storyStep>=4){storyStep=5;showGameMessage("Мастерская улучшена! Ты открыл собственный сервис. История пройдена.");}} if(w==5){orders++;parts++;}
             if(storyStep==0 && w==0)storyStep=1;
             saveGame();updateHud();
         }).setNegativeButton("ЗАКРЫТЬ",null).show();
@@ -176,9 +187,9 @@ public class MainActivity extends Activity {
     private void showSettings(){
         String[] options={"Сохранить игру сейчас","Как играть / управление","Сбросить сохранение"};
         new AlertDialog.Builder(this).setTitle("НАСТРОЙКИ").setItems(options,(d,w)->{
-            if(w==0){saveGame();Toast.makeText(this,"Прогресс сохранён.",Toast.LENGTH_SHORT).show();}
+            if(w==0){saveGame();showGameMessage("Прогресс сохранён.");}
             else if(w==1){new AlertDialog.Builder(this).setTitle("УПРАВЛЕНИЕ").setMessage("Левый виртуальный джойстик — движение.\nПроводи пальцем по правой части экрана — осмотр.\nПодойди к объекту и направь на него камеру, затем нажми ДЕЙСТВИЕ.\nМАГАЗИН — каталог комплектующих. РЮКЗАК — склад. ИСТОРИЯ — сюжетные главы.\n\nСборка телефона требует подержанный смартфон, набор деталей, экран и аккумулятор.").setPositiveButton("ПОНЯТНО",null).show();}
-            else {new AlertDialog.Builder(this).setTitle("Сбросить прогресс?").setMessage("Все деньги, предметы и сюжетный прогресс будут удалены. Это действие нельзя отменить.").setNegativeButton("ОТМЕНА",null).setPositiveButton("СБРОСИТЬ",(x,y)->{save.edit().clear().apply();money=18000;parts=0;usedPhones=0;screens=0;batteries=0;finishedPhones=0;reputation=0;day=1;storyStep=0;upgrades=0;orders=0;totalSales=0;completedRepairs=0;outside=false;scooterRiding=false;game.setOutside(false);game.setRiding(false);updateHud();Toast.makeText(this,"Новая игра начата.",Toast.LENGTH_SHORT).show();});}
+            else {new AlertDialog.Builder(this).setTitle("Сбросить прогресс?").setMessage("Все деньги, предметы и сюжетный прогресс будут удалены. Это действие нельзя отменить.").setNegativeButton("ОТМЕНА",null).setPositiveButton("СБРОСИТЬ",(x,y)->{save.edit().clear().apply();money=18000;parts=0;usedPhones=0;screens=0;batteries=0;finishedPhones=0;reputation=0;day=1;storyStep=0;upgrades=0;orders=0;totalSales=0;completedRepairs=0;outside=false;scooterRiding=false;game.setOutside(false);game.setRiding(false);updateHud();showGameMessage("Новая игра начата.");});}
         }).setNegativeButton("ЗАКРЫТЬ",null).show();
     }
 
