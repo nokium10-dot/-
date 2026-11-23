@@ -44,8 +44,11 @@ public final class PipActivity extends Activity {
         tts = new TextToSpeech(this, result -> {
             if (result == TextToSpeech.SUCCESS) {
                 int language = tts.setLanguage(new Locale("ru", "RU"));
-                ttsReady = language != TextToSpeech.LANG_MISSING_DATA
-                        && language != TextToSpeech.LANG_NOT_SUPPORTED;
+                if (language == TextToSpeech.LANG_MISSING_DATA
+                        || language == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    tts.setLanguage(Locale.getDefault());
+                }
+                ttsReady = true;
                 tts.setSpeechRate(0.96f);
                 tts.setPitch(1.08f);
             }
