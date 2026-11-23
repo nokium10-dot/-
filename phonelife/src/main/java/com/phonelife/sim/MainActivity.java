@@ -47,10 +47,12 @@ public class MainActivity extends Activity {
         hud.addView(top); hud.addView(quest); hud.addView(prompt);
         FrameLayout.LayoutParams hp=new FrameLayout.LayoutParams(-1,-2,Gravity.TOP);
         root.addView(hud,hp);
+        TextView crosshair=new TextView(this);crosshair.setText("＋");crosshair.setTextColor(0xDDFFFFFF);crosshair.setTextSize(23);crosshair.setTypeface(null,1);crosshair.setShadowLayer(4,0,0,Color.BLACK);crosshair.setGravity(Gravity.CENTER);
+        FrameLayout.LayoutParams cp=new FrameLayout.LayoutParams(dp(42),dp(42),Gravity.CENTER);root.addView(crosshair,cp);
 
         LinearLayout left=new LinearLayout(this); left.setOrientation(LinearLayout.VERTICAL); left.setPadding(10,8,10,8);
         left.setGravity(Gravity.CENTER);
-        MovePad pad=new MovePad(this,(x,y)->game.setMove(x,y));
+        MovePad pad=new MovePad(this,(x,y)->{game.setMove(x,y);prompt.setText(game.getTargetHint());});
         int padSize=dp(190);
         left.addView(pad,new LinearLayout.LayoutParams(padSize,padSize));
         FrameLayout.LayoutParams lp=new FrameLayout.LayoutParams(dp(205),dp(205),Gravity.BOTTOM|Gravity.LEFT);
@@ -73,7 +75,7 @@ public class MainActivity extends Activity {
         game.setOnTouchListener((v,e)->{
             if(e.getX()<getResources().getDisplayMetrics().widthPixels*.38f) return false;
             if(e.getAction()==MotionEvent.ACTION_DOWN){game.lookStart(e.getX(),e.getY());return true;}
-            if(e.getAction()==MotionEvent.ACTION_MOVE){game.lookMove(e.getX(),e.getY());return true;}
+            if(e.getAction()==MotionEvent.ACTION_MOVE){game.lookMove(e.getX(),e.getY());prompt.setText(game.getTargetHint());return true;}
             if(e.getAction()==MotionEvent.ACTION_UP){game.lookEnd();return true;}
             return true;
         });
@@ -107,16 +109,9 @@ public class MainActivity extends Activity {
     private void interact(){
         String target=game.getTarget();
         if("bench".equals(target)){
-            if(usedPhones>0 && parts>0 && screens>0 && batteries>0){
-                usedPhones--; parts--; screens--; batteries--; finishedPhones++; money+=900; reputation++;
-                game.setAction(1);
-                Toast.makeText(this,"Телефон собран и прошёл базовую проверку. +₽900",Toast.LENGTH_SHORT).show();
-                if(storyStep<2) storyStep=2;
-            } else if(orders>0 && parts>0){
-                orders--; parts--; money+=1600; reputation+=2; day++; completedRepairs++;
-                game.setAction(1);
-                Toast.makeText(this,"Заказ на ремонт выполнен. Клиент оплатил ₽1 600.",Toast.LENGTH_LONG).show();
-            } else if(usedPhones>0) Toast.makeText(this,"Для сборки нужны набор деталей, экран AMOLED и аккумулятор. Проверь магазин и рюкзак.",Toast.LENGTH_LONG).show();
+            if(usedPhones>0 && parts>0 && screens>0 && batteries>0){startBenchJob(true,0);return;}
+            else if(orders>0 && parts>0){startBenchJob(false,0);return;}
+            else if(usedPhones>0) Toast.makeText(this,"Для сборки нужны набор деталей, экран AMOLED и аккумулятор. Проверь магазин и рюкзак.",Toast.LENGTH_LONG).show();
             else if(orders>0) Toast.makeText(this,"Для ремонта нужен набор деталей. Купи его в магазине.",Toast.LENGTH_SHORT).show();
             else Toast.makeText(this,"Сначала купи подержанный телефон или возьми заказ на ремонт.",Toast.LENGTH_SHORT).show();
         } else if("customer".equals(target)){
@@ -139,6 +134,28 @@ public class MainActivity extends Activity {
         saveGame();
         updateHud();
     }
+    private void startBenchJob(boolean assembly,int step){
+        String[] assemblySteps={"ОСМОТР КОРПУСА И ДИСПЛЕЯ","УСТАНОВКА AMOLED-ЭКРАНА","ПОДКЛЮЧЕНИЕ БАТАРЕИ И ТЕСТ"};
+        String[] repairSteps={"ПЕРВИЧНАЯ ДИАГНОСТИКА","ЗАМЕНА ПОВРЕЖДЁННОЙ ДЕТАЛИ","ФИНАЛЬНАЯ ПРОВЕРКА"};
+        String[] steps=assembly?assemblySteps:repairSteps;
+        String details=assembly?"Подготовь корпус, проверь дисплейный модуль и аккуратно собери смартфон.":"Проверь неисправность, замени деталь и протестируй устройство.";
+        new AlertDialog.Builder(this).setTitle((assembly?"СБОРКА СМАРТФОНА":"РЕМОНТ ЗАКАЗА")+" · "+(step+1)+"/3")
+            .setMessage(steps[step]+"\n\n"+details+"\n\nНажми «ДАЛЕЕ», чтобы выполнить этап.")
+            .setPositiveButton(step==2?"ЗАВЕРШИТЬ":"ДАЛЕЕ",(d,w)->{
+                if(step<2){startBenchJob(assembly,step+1);return;}
+                if(assembly){
+                    if(usedPhones<=0||parts<=0||screens<=0||batteries<=0){Toast.makeText(this,"Не хватает комплектующих.",Toast.LENGTH_SHORT).show();return;}
+                    usedPhones--;parts--;screens--;batteries--;finishedPhones++;money+=900;reputation++;storyStep=Math.max(storyStep,2);
+                    Toast.makeText(this,"Смартфон собран и прошёл тестирование. +₽900",Toast.LENGTH_LONG).show();
+                }else{
+                    if(orders<=0||parts<=0){Toast.makeText(this,"Заказ или детали уже недоступны.",Toast.LENGTH_SHORT).show();return;}
+                    orders--;parts--;money+=1600;reputation+=2;day++;completedRepairs++;
+                    Toast.makeText(this,"Ремонт завершён. Оплата ₽1 600.",Toast.LENGTH_LONG).show();
+                }
+                game.setAction(1);saveGame();updateHud();
+            }).setNegativeButton("ОТЛОЖИТЬ",null).show();
+    }
+
     private void openShop(){
         String[] items={"Набор деталей ×3 — ₽1 500","Подержанный смартфон — ₽4 500","Экран AMOLED — ₽2 500","Аккумулятор — ₽1 200","Улучшить мастерскую — ₽8 000","Заказ на срочный ремонт — ₽900"};
         new AlertDialog.Builder(this).setTitle("МАГАЗИН КОМПЛЕКТУЮЩИХ").setItems(items,(d,w)->{
