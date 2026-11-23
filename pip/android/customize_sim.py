@@ -21,7 +21,20 @@ css = """
     padding:calc(env(safe-area-inset-top) + 18px) 18px calc(env(safe-area-inset-bottom) + 20px);
     background:#000; color:#f4f4f8; font:15px system-ui,sans-serif; overflow-y:auto;
   }
-  #pip-settings.open { display:block; }
+  #pip-settings.open { display:block; animation:pip-settings-in 430ms cubic-bezier(.2,.9,.2,1.12) both; }
+  #pip-settings.closing { display:block; pointer-events:none; animation:pip-settings-out 230ms cubic-bezier(.4,0,1,1) both; }
+  @keyframes pip-settings-in {
+    0% { opacity:0; transform:translateY(26px) scale(.965); filter:blur(8px); }
+    68% { opacity:1; transform:translateY(-3px) scale(1.008); filter:blur(0); }
+    100% { opacity:1; transform:translateY(0) scale(1); filter:blur(0); }
+  }
+  @keyframes pip-settings-out {
+    0% { opacity:1; transform:translateY(0) scale(1); filter:blur(0); }
+    100% { opacity:0; transform:translateY(18px) scale(.98); filter:blur(5px); }
+  }
+  @media (prefers-reduced-motion:reduce) {
+    #pip-settings.open, #pip-settings.closing { animation-duration:1ms; }
+  }
   #pip-settings .settings-head { display:flex; align-items:center; gap:14px; margin-bottom:28px; }
   #pip-settings h3 { margin:0; font-size:22px; font-weight:650; }
   #pip-settings .back { width:42px; height:42px; border-radius:14px; border:1px solid #292932; color:#fff; background:#101014; font-size:22px; }
@@ -254,8 +267,18 @@ footer = """
 (() => {
   const trigger = document.getElementById('pip-settings-trigger');
   const panel = document.getElementById('pip-settings');
-  const closeSettings = () => panel.classList.remove('open');
-  trigger.addEventListener('click', () => panel.classList.add('open'));
+  const closeSettings = () => {
+    if (!panel.classList.contains('open')) return;
+    panel.classList.remove('open');
+    panel.classList.add('closing');
+    const finish = () => panel.classList.remove('closing');
+    panel.addEventListener('animationend', finish, { once:true });
+    setTimeout(finish, 270);
+  };
+  trigger.addEventListener('click', () => {
+    panel.classList.remove('closing');
+    panel.classList.add('open');
+  });
   document.getElementById('pip-settings-back').addEventListener('click', closeSettings);
   document.querySelectorAll('[data-case]').forEach(button => {
     button.addEventListener('click', () => {
