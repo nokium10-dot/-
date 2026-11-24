@@ -1,0 +1,88 @@
+<!-- ===== Пип · мобильный интерфейс: разметка ===== -->
+<div id="pr-splash" aria-live="polite">
+  <div class="eyes"><i></i><i></i></div>
+  <p id="pr-splash-text">Пип просыпается…</p>
+</div>
+
+<div class="pr-top">
+  <button class="pr-icon" id="pr-open-look" style="--i:0" aria-label="Настройки">
+    <svg viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/></svg>
+  </button>
+  <div class="pr-pill" id="pr-pill" style="--i:1" role="button" tabindex="0" aria-label="Настроение Пипа"><i></i><span id="pr-pill-text">Пип</span></div>
+  <button class="pr-icon mic" id="pr-mic" style="--i:2" aria-label="Сказать команду Пипу">
+    <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6"/></svg>
+  </button>
+</div>
+
+<nav class="pr-dock" id="pr-dock" aria-label="Быстрые действия">
+  <button data-act="feed" style="--i:0"><svg viewBox="0 0 24 24"><path d="M3 11h18a9 7.5 0 0 1-18 0z"/><path d="M9 7.5c0-1.8 1.8-1.8 1.8-3.5M14 7.5c0-1.8 1.8-1.8 1.8-3.5"/></svg><span>Покормить</span></button>
+  <button data-act="play" style="--i:1"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M5.3 5.8c4.2 2.2 4.2 10.2 0 12.4M18.7 5.8c-4.2 2.2-4.2 10.2 0 12.4"/></svg><span>Поиграть</span></button>
+  <button data-act="pet" style="--i:2"><svg viewBox="0 0 24 24"><path d="M12 20.5s-8-4.9-8-10.6A4.6 4.6 0 0 1 12 7.2a4.6 4.6 0 0 1 8 2.7c0 5.7-8 10.6-8 10.6z"/></svg><span>Погладить</span></button>
+  <button data-act="menu" style="--i:3"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="2"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="2"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="2"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="2"/></svg><span>Меню</span></button>
+</nav>
+
+<div class="pv" id="pv" role="status" aria-live="polite">
+  <div class="pv-orb"><i></i><i></i>
+    <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3"/></svg>
+  </div>
+  <div class="pv-text"><div class="pv-title" id="pv-title">Слушаю…</div><div class="pv-sub" id="pv-sub"></div></div>
+</div>
+
+<div id="pr-backdrop"></div>
+<section id="pr-sheet" role="dialog" aria-modal="true" aria-label="Меню Пипа">
+  <div class="pr-grab" id="pr-grab"><i></i></div>
+  <header class="pr-head" id="pr-head">
+    <button class="pr-icon pr-close" id="pr-close" aria-label="Закрыть">✕</button>
+  </header>
+  <nav class="pr-tabs no-anim" id="pr-tabs" role="tablist" aria-label="Разделы меню">
+    <i class="pr-ind"></i>
+    <button role="tab" data-tab="care">Забота</button>
+    <button role="tab" data-tab="mood">Эмоции</button>
+    <button role="tab" data-tab="sound">Звук</button>
+    <button role="tab" data-tab="ctl">Управление</button>
+    <button role="tab" data-tab="link">Связь</button>
+    <button role="tab" data-tab="look">Настройки</button>
+  </nav>
+  <div class="pr-pages" id="pr-pages">
+    <div class="pr-page" id="pg-care" role="tabpanel"></div>
+    <div class="pr-page" id="pg-mood" role="tabpanel"></div>
+    <div class="pr-page" id="pg-sound" role="tabpanel"></div>
+    <div class="pr-page" id="pg-ctl" role="tabpanel"></div>
+    <div class="pr-page" id="pg-link" role="tabpanel"></div>
+    <div class="pr-page" id="pg-look" role="tabpanel">
+      <h2>Голосовой помощник</h2>
+      <div class="pr-card">
+        <div class="pr-assist" id="pr-assist-status" data-ok="0"><i></i><span id="pr-assist-text">Проверяем…</span></div>
+        <div class="pr-stack">
+          <button class="primary" id="pr-assist-set">Сделать Пипа голосовым помощником</button>
+          <button id="pr-assist-open">Настройки помощника в телефоне</button>
+          <button id="pr-assist-try">🎙 Сказать команду</button>
+        </div>
+      </div>
+      <p class="note">Когда Пип выбран помощником, удерживайте кнопку «Домой» или питания (или проведите из угла экрана) — Пип откроется и сразу начнёт слушать.</p>
+
+      <h2>Цвет корпуса</h2>
+      <div class="pr-swatches">
+        <button data-case="#c4c6cc" data-polish="#e0e1e5"><i class="dot" style="background:#c4c6cc"></i>Серый</button>
+        <button data-case="#252833" data-polish="#555b6d"><i class="dot" style="background:#252833"></i>Графит</button>
+        <button data-case="#17191e" data-polish="#454954"><i class="dot" style="background:#17191e"></i>Чёрный</button>
+        <button data-case="#7139a8" data-polish="#b77af0"><i class="dot" style="background:#7139a8"></i>Фиолет</button>
+        <button data-case="#126b68" data-polish="#56c8b9"><i class="dot" style="background:#126b68"></i>Бирюза</button>
+        <button data-case="#9d244d" data-polish="#ed79a0"><i class="dot" style="background:#9d244d"></i>Розовый</button>
+      </div>
+
+      <h2>Размер брелока</h2>
+      <button id="pr-reset-zoom" style="width:100%">Сбросить размер</button>
+      <p class="note">Сведите или разведите два пальца на брелоке, чтобы изменить размер. Потяните за корпус — брелок наклонится.</p>
+    </div>
+  </div>
+</section>
+
+<div id="pr-toast" role="status"></div>
+<div id="pr-modal" role="alertdialog" aria-modal="true">
+  <div class="card">
+    <h3 id="pr-modal-title"></h3>
+    <p id="pr-modal-text"></p>
+    <div class="btns"><button id="pr-modal-no">Отмена</button><button class="danger" id="pr-modal-yes">Да</button></div>
+  </div>
+</div>
