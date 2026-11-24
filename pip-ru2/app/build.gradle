@@ -1,0 +1,57 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Отдельное приложение: свой applicationId, чтобы не конфликтовать с PipAltVer (com.pipaltver.mobile),
+// с оригинальным Pip-KeyPet (com.pip.keypet) и с pip-ru (com.pipru.assistant).
+def runNumber = (System.getenv('GITHUB_RUN_NUMBER') ?: '1').toInteger()
+def keystorePath = System.getenv('PIPRU_KEYSTORE')
+
+android {
+    namespace 'com.pipru.v2'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.pipru.v2'
+        minSdk 26
+        targetSdk 35
+        versionCode runNumber
+        versionName "1.0.${runNumber}"
+    }
+
+    signingConfigs {
+        release {
+            if (keystorePath != null) {
+                storeFile file(keystorePath)
+                storePassword System.getenv('PIPRU_STORE_PASS')
+                keyAlias System.getenv('PIPRU_KEY_ALIAS')
+                keyPassword System.getenv('PIPRU_KEY_PASS')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig keystorePath != null ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    androidResources {
+        noCompress 'wasm'
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.12.1'
+}

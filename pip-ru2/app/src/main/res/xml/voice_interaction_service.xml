@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<voice-interaction-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:sessionService="com.pipru.v2.PipVoiceSessionService"
+    android:recognitionService="com.pipru.v2.PipRecognitionService"
+    android:settingsActivity="com.pipru.v2.AssistantSettingsActivity"
+    android:supportsAssist="true"
+    android:supportsLaunchVoiceAssistFromKeyguard="true" />

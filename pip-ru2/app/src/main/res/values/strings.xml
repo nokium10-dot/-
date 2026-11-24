@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Пип 2</string>
+    <string name="assistant_label">Пип 2 — голосовой помощник</string>
+    <string name="recognizer_label">Пип 2 (распознавание речи)</string>
+</resources>
