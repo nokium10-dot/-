@@ -8,6 +8,19 @@
   const buzz = () => { try { const b = bridge(); if (b && b.haptic) b.haptic(); } catch (_) { /* нет вибро */ } };
   const EASE_OUT = 'cubic-bezier(.16, 1, .3, 1)';
 
+  /* ---------- пружинная физика (в духе HyperSpring): настоящая затухающая пружина, выбранная в ключевые кадры ---------- */
+  const springP = (t, k, c) => {                  // прогресс пружины 0→1 с перелётом, масса = 1
+    const w = Math.sqrt(k), z = c / (2 * w), wd = w * Math.sqrt(Math.max(1e-4, 1 - z * z));
+    return 1 - Math.exp(-z * w * t) * (Math.cos(wd * t) + (z * w / wd) * Math.sin(wd * t));
+  };
+  function springAnim(el, frame, o = {}) {
+    const k = o.k || 190, c = o.c || 15, fill = o.fill || 'backwards';
+    const dur = Math.min(1.3, 6.2 / (c / 2)), n = Math.max(12, Math.round(dur * 60)), kfs = [];
+    for (let i = 0; i <= n; i++) { const t = dur * i / n; kfs.push(Object.assign(frame(springP(t, k, c), t), { offset: i / n })); }
+    return el.animate(kfs, { duration: dur * 1000, delay: o.delay || 0, easing: 'linear', fill });
+  }
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
   /* ---------- ошибки запуска: показываем на заставке ---------- */
   const splashText = $('#pr-splash-text');
   const showFatal = (msg) => {
@@ -91,6 +104,7 @@
   /* ---------- шторка с вкладками ---------- */
   const sheet = $('#pr-sheet'), backdrop = $('#pr-backdrop'), tabs = $('#pr-tabs'), ind = $('.pr-ind', tabs), pages = $('#pr-pages');
   const tabBtns = $$('button[data-tab]', tabs);
+  pages.style.perspective = '900px'; pages.style.perspectiveOrigin = '50% 0';   // для наклона «шторы»
   const order = tabBtns.map(b => b.dataset.tab);
   let current = null, opened = false;
 
@@ -119,21 +133,26 @@
     const animate = !instant && !reduce();
     placeIndicator($('[data-tab="' + name + '"]', tabs), animate && !!current);
     current = name;
+    const f = 0.75 + 0.25 * Math.min(3, Math.abs(order.indexOf(name) - order.indexOf(prev ? prev.id.slice(3) : name)) || 1);
     if (prev) {
       if (animate) {
+        /* «штора»: уходящая страница наклоняется по скорости и размывается */
         prev.classList.add('leaving');
         const out = prev.animate(
-          [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateX(' + (-dir * 30) + 'px) scale(.985)' }],
-          { duration: 200, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' });
+          [{ opacity: 1, transform: 'none', filter: 'blur(0px)' },
+           { opacity: 0, transform: 'translateX(' + (-dir * 46 * f) + 'px) rotateY(' + (dir * 22 * f) + 'deg) scale(.96)', filter: 'blur(7px)' }],
+          { duration: 230, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' });
         out.onfinish = () => { prev.classList.remove('active', 'leaving'); out.cancel(); };
       } else prev.classList.remove('active');
     }
     next.classList.add('active');
     pages.scrollTop = 0;
     if (animate) {
-      next.animate(
-        [{ opacity: 0, transform: 'translateX(' + (dir * 38) + 'px)' }, { opacity: 1, transform: 'none' }],
-        { duration: 460, easing: EASE_OUT });
+      springAnim(next, (p) => {
+        const q = 1 - p;
+        return { transform: 'translateX(' + (dir * 70 * f * q) + 'px) rotateY(' + (-dir * 20 * f * q) + 'deg) scale(' + (1 - .04 * q) + ')',
+                 opacity: Math.min(1, p * 2.2), filter: 'blur(' + Math.max(0, q) * 8 + 'px)' };
+      }, { k: 200, c: 16, delay: 90 });
       stagger(next);
     }
     if (!instant) buzz();
@@ -141,57 +160,116 @@
   }
   tabBtns.forEach(b => b.addEventListener('click', () => selectTab(b.dataset.tab)));
 
-  function openSheet(tab) {
+  let sheetAnim = null, origin = null;
+  const setOrigin = (el) => {
+    if (!el || !el.getBoundingClientRect) return;
+    const r = el.getBoundingClientRect(); origin = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  };
+  const killSheetAnim = () => { if (sheetAnim) { sheetAnim.onfinish = null; sheetAnim.cancel(); sheetAnim = null; } };
+  const resetSheetStyle = () => { sheet.style.transition = ''; sheet.style.transform = ''; sheet.style.transformOrigin = ''; backdrop.style.transition = ''; backdrop.style.opacity = ''; };
+
+  function openSheet(tab, from) {
+    if (from) setOrigin(from);
     if (!opened) {
       opened = true;
+      killSheetAnim(); resetSheetStyle();
       document.body.classList.add('pr-open');
-      backdrop.style.opacity = ''; backdrop.style.transition = '';
-      sheet.style.transition = ''; sheet.style.transform = '';
       backdrop.classList.add('show');
-      void sheet.offsetWidth;                       // фиксируем начальное состояние, чтобы сработала анимация
+      const genie = !reduce();
+      if (genie) sheet.style.transition = 'none';
       sheet.classList.add('show');
       buzz();
       if (!current) selectTab(tab || 'care', true);
       else if (tab) selectTab(tab);
+      if (genie) {
+        /* «джинн»: окно вырастает из кнопки, которой его открыли, с пружинным перелётом */
+        const r = sheet.getBoundingClientRect(), o = origin || { x: innerWidth / 2, y: innerHeight };
+        sheet.style.transformOrigin = clamp(o.x - r.left, 0, r.width) + 'px ' + (o.y - r.top) + 'px';
+        sheetAnim = springAnim(sheet, (p, t) => {
+          const py = springP(t * 0.8, 170, 15);
+          return { transform: 'scale(' + (0.1 + 0.9 * p) + ',' + Math.min(1.05, 0.03 + 0.97 * py) + ') skewX(' + ((1 - Math.min(1, p)) * -9) + 'deg)',
+                   opacity: Math.min(1, p * 4) };
+        }, { k: 170, c: 15, fill: 'none' });
+        sheetAnim.onfinish = () => { sheetAnim = null; resetSheetStyle(); };
+      }
       requestAnimationFrame(() => { const b = $('[data-tab="' + current + '"]', tabs); if (b) placeIndicator(b, false); });
       if (!reduce()) stagger($('#pg-' + current));
     } else if (tab) selectTab(tab);
   }
-  function closeSheet() {
+
+  function finishClose() {
+    killSheetAnim(); resetSheetStyle();
+    sheet.classList.remove('show');
+  }
+  /* mode: undefined — «втягиваем» окно обратно в кнопку; объект {dx,dy,rot} — окно отпущено после смахивания */
+  function closeSheet(mode) {
     if (!opened) return;
     opened = false;
     document.body.classList.remove('pr-open');
-    sheet.style.transition = ''; sheet.style.transform = '';
     backdrop.style.transition = ''; backdrop.style.opacity = '';
-    sheet.classList.remove('show'); backdrop.classList.remove('show');
+    backdrop.classList.remove('show');
     const a = document.activeElement; if (a && a.blur) a.blur();
+    killSheetAnim();
+    if (reduce()) { resetSheetStyle(); sheet.classList.remove('show'); return; }
+    sheet.style.transition = 'none';
+    if (mode && typeof mode === 'object') {
+      sheetAnim = sheet.animate(
+        [{ transform: 'translate3d(' + mode.dx + 'px,' + mode.dy + 'px,0) rotate(' + mode.rot + 'deg)' },
+         { transform: 'translate3d(' + (mode.dx * 1.8) + 'px,' + (sheet.offsetHeight * 1.1 + mode.dy) + 'px,0) rotate(' + (mode.rot * 1.8) + 'deg)' }],
+        { duration: 320, easing: 'cubic-bezier(.5, 0, .75, 0)', fill: 'forwards' });
+    } else {
+      const r = sheet.getBoundingClientRect(), o = origin || { x: innerWidth / 2, y: innerHeight };
+      sheet.style.transformOrigin = clamp(o.x - r.left, 0, r.width) + 'px ' + (o.y - r.top) + 'px';
+      const kfs = [];
+      for (let i = 0; i <= 24; i++) {
+        const u = i / 24, e = u * u * u, ey = Math.min(1, e * 1.3);
+        kfs.push({ offset: u, transform: 'scale(' + (1 - 0.9 * e) + ',' + (1 - 0.97 * ey) + ') skewX(' + (-9 * e) + 'deg)', opacity: 1 - clamp((u - .55) / .45, 0, 1) });
+      }
+      sheetAnim = sheet.animate(kfs, { duration: 340, easing: 'linear', fill: 'forwards' });
+    }
+    sheetAnim.onfinish = finishClose;
   }
-  $('#pr-close').onclick = closeSheet;
-  backdrop.addEventListener('pointerdown', closeSheet);
+  $('#pr-close').onclick = () => closeSheet();
+  backdrop.addEventListener('pointerdown', () => closeSheet());
   addEventListener('keydown', e => { if (e.key === 'Escape') (modalDone ? closeModal(false) : closeSheet()); });
 
-  /* смахивание шторки вниз за «ручку» и шапку */
+  /* «лампа»: окно висит на пальце и раскачивается; отпустили — пружинно возвращается или улетает вниз */
   let drag = null;
   const dragStart = (e) => {
     if (!opened || e.target.closest('button')) return;
-    drag = { y: e.clientY, t: performance.now(), dy: 0, el: e.currentTarget };
+    killSheetAnim(); resetSheetStyle();
+    const r = sheet.getBoundingClientRect();
+    drag = { x: e.clientX, y: e.clientY, t: performance.now(), lt: performance.now(), lx: e.clientX, vx: 0, dx: 0, dy: 0, rot: 0, el: e.currentTarget };
     drag.el.setPointerCapture(e.pointerId);
+    sheet.style.transformOrigin = (e.clientX - r.left) + 'px ' + (e.clientY - r.top) + 'px';
     sheet.style.transition = 'none'; backdrop.style.transition = 'none';
   };
   const dragMove = (e) => {
     if (!drag) return;
+    const now = performance.now(), dt = Math.max(1, now - drag.lt);
+    drag.vx = drag.vx * 0.7 + ((e.clientX - drag.lx) / dt) * 0.3;
+    drag.lt = now; drag.lx = e.clientX;
+    drag.dx = (e.clientX - drag.x) * 0.45;
     drag.dy = Math.max(0, e.clientY - drag.y);
-    sheet.style.transform = 'translate3d(0,' + drag.dy + 'px,0)';
+    drag.rot = clamp((e.clientX - drag.x) / 16 + drag.vx * 5, -11, 11);
+    sheet.style.transform = 'translate3d(' + drag.dx + 'px,' + drag.dy + 'px,0) rotate(' + drag.rot + 'deg)';
     backdrop.style.opacity = String(Math.max(0, 1 - drag.dy / Math.max(1, sheet.offsetHeight * .8)));
   };
   const dragEnd = () => {
     if (!drag) return;
-    const v = drag.dy / Math.max(1, performance.now() - drag.t);
-    const close = drag.dy > sheet.offsetHeight * .22 || v > .7;
-    drag = null;
-    sheet.style.transition = ''; backdrop.style.transition = '';
-    if (close) closeSheet();
-    else { sheet.style.transform = ''; backdrop.style.opacity = ''; }
+    const d = drag; drag = null;
+    const v = d.dy / Math.max(1, performance.now() - d.t);
+    const close = d.dy > sheet.offsetHeight * .22 || v > .7;
+    backdrop.style.transition = '';
+    if (close) { closeSheet({ dx: d.dx, dy: d.dy, rot: d.rot }); return; }
+    backdrop.style.opacity = '';
+    sheet.style.transform = '';
+    if (reduce()) { sheet.style.transition = ''; sheet.style.transformOrigin = ''; return; }
+    sheetAnim = springAnim(sheet, (p) => {
+      const q = 1 - p;
+      return { transform: 'translate3d(' + (d.dx * q) + 'px,' + (d.dy * q) + 'px,0) rotate(' + (d.rot * q) + 'deg)' };
+    }, { k: 230, c: 11, fill: 'none' });
+    sheetAnim.onfinish = () => { sheetAnim = null; resetSheetStyle(); };
   };
   for (const el of [$('#pr-grab'), $('#pr-head')]) {
     el.addEventListener('pointerdown', dragStart);
@@ -209,13 +287,13 @@
   /* ---------- верх и док ---------- */
   const notReady = () => { window.pipToast('Пип ещё просыпается…'); };
   const api = () => window.pipApi || null;
-  $('#pr-open-look').onclick = () => openSheet('look');
-  $('#pr-pill').onclick = () => openSheet('mood');
-  $('#pr-pill').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') openSheet('mood'); });
+  $('#pr-open-look').onclick = (e) => openSheet('look', e.currentTarget);
+  $('#pr-pill').onclick = (e) => openSheet('mood', e.currentTarget);
+  $('#pr-pill').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') openSheet('mood', e.currentTarget); });
   $('#pr-mic').onclick = () => startVoice();
   $$('#pr-dock button').forEach(b => b.addEventListener('click', () => {
     const act = b.dataset.act;
-    if (act === 'menu') { openSheet('care'); return; }
+    if (act === 'menu') { openSheet('care', b); return; }
     if (!api()) { notReady(); return; }
     b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); buzz();
     api()[act]();
