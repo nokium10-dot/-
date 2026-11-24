@@ -1,0 +1,163 @@
+name: Build Pip RU 2 (separate app)
+
+# Отдельная русская версия Пипа: пакет com.pipru.v2, папка pip-ru2/.
+# Никак не связана с PipAltVer (workflow build.yml / build-pip.yml) и не мешает ей.
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: 'Версия Pip-KeyPet (ветка, тег или SHA). Пусто = проверенная версия.'
+        required: false
+        default: ''
+  push:
+    paths:
+      - 'pip-ru2/**'
+      - '.github/workflows/build-pip-ru2.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-pip-ru2
+  cancel-in-progress: true
+
+env:
+  # Версия оригинала, на которой проверялись патчи интерфейса.
+  PIP_SRC_REF: b505d9393bd9b8c0b076c0ef7a4d46921db69071
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      HAS_SIGNING_SECRETS: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+    steps:
+      - name: Checkout wrapper
+        uses: actions/checkout@v4
+
+      - name: Checkout official Pip-KeyPet
+        uses: actions/checkout@v4
+        with:
+          repository: NovikovVisuals/Pip-KeyPet
+          ref: ${{ inputs.source_ref != '' && inputs.source_ref || env.PIP_SRC_REF }}
+          path: pip-src
+          submodules: recursive
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build cmake
+
+      - name: Set up Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build the original simulator (LVGL -> WebAssembly)
+        run: |
+          emcmake cmake -S pip-src/sim -B pip-src/build-web -G Ninja
+          cmake --build pip-src/build-web --parallel
+          test -s pip-src/sim/web/pip.js
+          test -s pip-src/sim/web/pip.wasm
+
+      - name: Assemble the Russian mobile web app
+        run: |
+          npm install --prefix /tmp/pip-web three@0.170.0
+          ASSETS=pip-ru2/app/src/main/assets/pip
+          mkdir -p "$ASSETS/three/addons/environments"
+          cp pip-src/sim/web/pip.js pip-src/sim/web/pip.wasm "$ASSETS/"
+          cp /tmp/pip-web/node_modules/three/build/three.module.js "$ASSETS/three.module.js"
+          cp /tmp/pip-web/node_modules/three/examples/jsm/environments/RoomEnvironment.js "$ASSETS/three/addons/environments/RoomEnvironment.js"
+          if grep -q "three.core" "$ASSETS/three.module.js"; then echo "three.js 0.170 неожиданно разделён на файлы"; exit 1; fi
+          python3 pip-ru2/tools/build_web.py --src pip-src/sim/web/index.html --out "$ASSETS/index.html"
+          ls -la "$ASSETS"
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      # Подпись: свой ключ из секретов, иначе ключ создаётся один раз и хранится в кэше Actions,
+      # чтобы новые сборки ставились поверх старых без удаления приложения.
+      - name: Use signing key from secrets
+        if: env.HAS_SIGNING_SECRETS == 'true'
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KS_KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          mkdir -p pip-ru2/signing
+          echo "$KS_B64" | base64 --decode > pip-ru2/signing/pipru2.jks
+          {
+            echo "PIPRU_KEYSTORE=$GITHUB_WORKSPACE/pip-ru2/signing/pipru2.jks"
+            echo "PIPRU_STORE_PASS=$KS_PASS"
+            echo "PIPRU_KEY_ALIAS=$KS_ALIAS"
+            echo "PIPRU_KEY_PASS=$KS_KEY_PASS"
+          } >> "$GITHUB_ENV"
+
+      - name: Restore generated signing key
+        if: env.HAS_SIGNING_SECRETS != 'true'
+        id: keycache
+        uses: actions/cache@v4
+        with:
+          path: pip-ru2/signing/pipru2.jks
+          key: pipru2-signing-key-v1
+
+      - name: Create signing key (first run only)
+        if: env.HAS_SIGNING_SECRETS != 'true' && steps.keycache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p pip-ru2/signing
+          keytool -genkeypair -v -keystore pip-ru2/signing/pipru2.jks -storetype PKCS12 \
+            -alias pipru -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass pipru-local -keypass pipru-local \
+            -dname "CN=Pip RU 2, O=Pip, C=RU"
+
+      - name: Use generated signing key
+        if: env.HAS_SIGNING_SECRETS != 'true'
+        run: |
+          echo "PIPRU_KEYSTORE=$GITHUB_WORKSPACE/pip-ru2/signing/pipru2.jks" >> "$GITHUB_ENV"
+          echo "PIPRU_STORE_PASS=pipru-local" >> "$GITHUB_ENV"
+          echo "PIPRU_KEY_ALIAS=pipru" >> "$GITHUB_ENV"
+          echo "PIPRU_KEY_PASS=pipru-local" >> "$GITHUB_ENV"
+
+      - name: Build APK
+        working-directory: pip-ru2
+        run: gradle assembleRelease --no-daemon --stacktrace
+
+      - name: Name the APK
+        run: |
+          mkdir -p dist
+          cp pip-ru2/app/build/outputs/apk/release/app-release.apk dist/Pip-RU2.apk
+          ls -la dist
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pip-RU2-APK
+          path: dist/Pip-RU2.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: pipru2-latest
+          name: Пип 2 (русская версия) — последняя сборка
+          body: |
+            Отдельное приложение «Пип 2» (пакет com.pipru.v2): оригинальный симулятор Pip-KeyPet
+            на русском, мобильный интерфейс и голосовой помощник для настроек телефона.
+            Не заменяет и не конфликтует с PipAltVer и с pip-ru.
+          files: dist/Pip-RU2.apk
+          overwrite_files: true
+          fail_on_unmatched_files: true
+          token: ${{ github.token }}
