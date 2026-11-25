@@ -245,42 +245,54 @@ async function getGroupRanking(chatId, limit = 10) {
   }));
 }
 
-async function massUpgrade(userId, rarity, nextRarity, nextValue, successChance = 0.5) {
+async function massUpgrade(userId, rarity, nextRarity, nextValue) {
   if (!pool) {
     const owned = memory.cards.filter(c => c.userId === Number(userId) && c.rarity === rarity);
+    const groups = Math.floor(owned.length / 3);
     const results = [];
-    for (const card of owned) {
-      if (Math.random() < successChance) {
-        card.rarity = nextRarity;
-        card.value = nextValue;
-        results.push({ name: card.name, success: true, rarity: nextRarity });
-      } else {
-        const index = memory.cards.indexOf(card);
+    for (let i = 0; i < groups; i++) {
+      const trio = owned.slice(i * 3, i * 3 + 3);
+      const upgraded = trio[0];
+      upgraded.rarity = nextRarity;
+      upgraded.value = nextValue;
+      for (const consumed of trio.slice(1)) {
+        const index = memory.cards.indexOf(consumed);
         if (index >= 0) memory.cards.splice(index, 1);
-        results.push({ name: card.name, success: false });
       }
+      results.push({ name: upgraded.name, rarity: nextRarity });
     }
-    return results;
+    return { upgraded: groups, consumed: groups * 3, remaining: owned.length % 3, results };
   }
+
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
     const selected = await client.query(
-      "SELECT id,model FROM ncard_cards WHERE telegram_id=$1 AND rarity=$2 FOR UPDATE",
+      "SELECT id,model FROM ncard_cards WHERE telegram_id=$1 AND rarity=$2 ORDER BY id FOR UPDATE",
       [String(userId), rarity]
     );
+    const groups = Math.floor(selected.rows.length / 3);
     const results = [];
-    for (const card of selected.rows) {
-      if (Math.random() < successChance) {
-        await client.query("UPDATE ncard_cards SET rarity=$2,value=$3 WHERE id=$1", [card.id, nextRarity, nextValue]);
-        results.push({ name: card.model, success: true, rarity: nextRarity });
-      } else {
-        await client.query("DELETE FROM ncard_cards WHERE id=$1", [card.id]);
-        results.push({ name: card.model, success: false });
-      }
+    for (let i = 0; i < groups; i++) {
+      const trio = selected.rows.slice(i * 3, i * 3 + 3);
+      const keep = trio[0];
+      await client.query(
+        "UPDATE ncard_cards SET rarity=$2,value=$3 WHERE id=$1",
+        [keep.id, nextRarity, nextValue]
+      );
+      await client.query(
+        "DELETE FROM ncard_cards WHERE id = ANY($1::bigint[])",
+        [trio.slice(1).map(card => card.id)]
+      );
+      results.push({ name: keep.model, rarity: nextRarity });
     }
     await client.query("COMMIT");
-    return results;
+    return {
+      upgraded: groups,
+      consumed: groups * 3,
+      remaining: selected.rows.length - groups * 3,
+      results
+    };
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
