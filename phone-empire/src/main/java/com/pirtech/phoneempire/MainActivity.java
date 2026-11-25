@@ -5,127 +5,57 @@ import android.os.Bundle;
 import android.graphics.*;
 import android.view.*;
 import android.content.*;
-import android.media.*;
 import android.speech.tts.TextToSpeech;
 import java.util.*;
 
 public class MainActivity extends Activity {
-    private Adventure game;
-    private TextToSpeech tts;
-    @Override public void onCreate(Bundle b){
-        super.onCreate(b);
-        getWindow().setStatusBarColor(Color.rgb(8,10,18));
-        getWindow().setNavigationBarColor(Color.rgb(8,10,18));
-        tts=new TextToSpeech(this,s->{if(s==TextToSpeech.SUCCESS)tts.setLanguage(new Locale("ru","RU"));});
-        game=new Adventure(this); setContentView(game);
-    }
-    @Override protected void onPause(){super.onPause();if(game!=null)game.save();}
+    private Game game; private TextToSpeech tts;
+    @Override public void onCreate(Bundle b){super.onCreate(b);getWindow().setStatusBarColor(Color.rgb(12,15,24));getWindow().setNavigationBarColor(Color.rgb(12,15,24));tts=new TextToSpeech(this,s->{if(s==TextToSpeech.SUCCESS)tts.setLanguage(new Locale("ru","RU"));});game=new Game(this);setContentView(game);}
+    @Override protected void onPause(){if(game!=null)game.save();super.onPause();}
     @Override protected void onDestroy(){if(tts!=null)tts.shutdown();super.onDestroy();}
-
-    private class Adventure extends View {
-        Canvas c; Paint p=new Paint(); Bitmap[] rooms=new Bitmap[8];
-        float px=480,py=510,joyX=0,joyY=0,scaleX,scaleY;
-        int room=0,chapter=0,dialogue=0,heart=3,coins=0;
-        boolean talking=false,showHelp=true;
-        String speaker="",line="";
-        long last=System.nanoTime();
-        final int ink=Color.rgb(10,10,18),paper=Color.WHITE,red=Color.rgb(255,65,85),gold=Color.rgb(255,211,89);
-        final String[][] talks={
-            {"СТАРЫЙ СМОТРИТЕЛЬ","Ты наконец проснулся. Это место давно ждёт гостя.","Восемь комнат соединены старыми переходами.","Найди три осколка памяти. Тогда откроется северная дверь."},
-            {"МИРА","Не бойся темноты. Она просто не умеет говорить.","Я потеряла ключ в мастерской. Поможешь найти?","Спасибо. Возьми эту монету."},
-            {"МЕХАНИК","Этот механизм питается воспоминаниями.","Нажми на кнопку рядом с панелью, когда найдёшь осколок."},
-            {"ЛЕСНОЙ ДУХ","Здесь каждый звук оставляет след.","Ты можешь идти дальше. Только не забывай слушать."},
-            {"АРХИВАРИУС","В старых книгах написано: выход всегда там, где ты решишь его искать.","Ты собрал достаточно воспоминаний."},
-            {"СТРАННИК","Я видел свет за восточной дверью.","Не все встречи случайны."},
-            {"ХРАНИТЕЛЬ","Ты прошёл длинный путь.","Комнаты меняются, но выбор остаётся за тобой."},
-            {"ГОЛОС","Спасибо, что дошёл сюда.","Это только начало новой истории."}
-        };
-        final String[] names={"ЗАЛ ПРОБУЖДЕНИЯ","СТАРАЯ МАСТЕРСКАЯ","ЗАТОНУВШАЯ БИБЛИОТЕКА","ТИХИЙ ЛЕС","ЗАЛ ПАМЯТИ","ЗАБРОШЕННАЯ СТАНЦИЯ","СЕВЕРНЫЙ КОРИДОР","ПОСЛЕДНЯЯ КОМНАТА"};
-        Adventure(Context ctx){super(ctx);setLayerType(View.LAYER_TYPE_SOFTWARE,null);load();}
-        void load(){android.content.SharedPreferences s=getSharedPreferences("soulstory",0);room=s.getInt("room",0);px=s.getFloat("px",480);py=s.getFloat("py",510);chapter=s.getInt("chapter",0);coins=s.getInt("coins",0);}
-        void save(){getSharedPreferences("soulstory",0).edit().putInt("room",room).putFloat("px",px).putFloat("py",py).putInt("chapter",chapter).putInt("coins",coins).apply();}
-        int col(String v){return Color.parseColor(v);}
-        void fill(int color){p.setColor(color);p.setStyle(Paint.Style.FILL);}
-        void box(float x,float y,float w,float h,int color){fill(color);c.drawRect(x,y,x+w,y+h,p);}
-        void stroke(float x,float y,float w,float h,int color,float sw){p.setColor(color);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(sw);c.drawRect(x,y,x+w,y+h,p);p.setStyle(Paint.Style.FILL);}
-        void text(String s,float x,float y,int size,int color){fill(color);p.setTypeface(Typeface.create("monospace",Typeface.BOLD));p.setTextSize(size);c.drawText(s,x,y,p);}
-        void center(String s,float x,float y,int size,int color){p.setTypeface(Typeface.create("monospace",Typeface.BOLD));p.setTextSize(size);text(s,x-p.measureText(s)/2,y,size,color);}
-        @Override protected void onDraw(Canvas canvas){super.onDraw(canvas);c=canvas;scaleX=getWidth()/960f;scaleY=getHeight()/540f;c.save();c.scale(scaleX,scaleY);
-            long now=System.nanoTime();float dt=Math.min(.04f,(now-last)/1e9f);last=now;
-            if(!talking){px+=joyX*180*dt;py+=joyY*180*dt;px=Math.max(55,Math.min(905,px));py=Math.max(90,Math.min(500,py));}
-            drawRoom();drawObjects();drawCharacter(px,py,1.0f,Color.rgb(235,221,194),false);
-            hud();if(talking)drawDialogue();if(showHelp&&!talking)drawHelp();
-            c.restore();postInvalidateDelayed(16);
+    class Game extends View {
+        Canvas c; Paint p=new Paint(); float sx,sy,playerX=150,playerY=0,vy=0,camera=0; boolean left,right,jump,ground=true,menu=false,dialog=false;
+        int zone=0,money=150000,rep=0,level=1,phones=0,day=1,selected=0; String message="Добро пожаловать в PHONE EMPIRE!";
+        long last=System.nanoTime(); final int ink=0xff10131d,white=0xfff5f0df,gold=0xffffcc65,cyan=0xff76d7dc;
+        String[] zones={"МАСТЕРСКАЯ","УЛИЦА","МАГАЗИН","ЗАВОД"};
+        String[] people={"МИРА — дизайнер","ПОКУПАТЕЛЬ","ПРОДАВЕЦ","ИНЖЕНЕР"};
+        Game(Context x){super(x);setLayerType(View.LAYER_TYPE_SOFTWARE,null);android.content.SharedPreferences s=getSharedPreferences("phoneempire",0);money=s.getInt("money",150000);rep=s.getInt("rep",0);level=s.getInt("level",1);phones=s.getInt("phones",0);zone=s.getInt("zone",0);playerX=s.getFloat("x",150);playerY=0;}
+        void save(){getSharedPreferences("phoneempire",0).edit().putInt("money",money).putInt("rep",rep).putInt("level",level).putInt("phones",phones).putInt("zone",zone).putFloat("x",playerX).apply();}
+        void rect(float x,float y,float w,float h,int color){p.setColor(color);p.setStyle(Paint.Style.FILL);c.drawRect(x,y,x+w,y+h,p);}
+        void outline(float x,float y,float w,float h,int color,int sw){p.setColor(color);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(sw);c.drawRect(x,y,x+w,y+h,p);p.setStyle(Paint.Style.FILL);}
+        void txt(String s,float x,float y,int size,int color){p.setColor(color);p.setTextSize(size);p.setTypeface(Typeface.create("monospace",Typeface.BOLD));c.drawText(s,x,y,p);}
+        void center(String s,float x,float y,int size,int color){p.setTypeface(Typeface.create("monospace",Typeface.BOLD));p.setTextSize(size);txt(s,x-p.measureText(s)/2,y,size,color);}
+        @Override protected void onDraw(Canvas cv){super.onDraw(cv);c=cv;sx=getWidth()/960f;sy=getHeight()/540f;c.save();c.scale(sx,sy);long now=System.nanoTime();float dt=Math.min(.04f,(now-last)/1e9f);last=now;
+            if(!menu&&!dialog){if(left)playerX-=190*dt;if(right)playerX+=190*dt;if(jump&&ground){vy=-430;ground=false;}vy+=1000*dt;playerY+=vy*dt;if(playerY>0){playerY=0;vy=0;ground=true;}if(playerX<24){if(zone>0){zone--;playerX=900;}else playerX=24;}if(playerX>936){if(zone<3){zone++;playerX=55;}else playerX=936;}}
+            camera=Math.max(0,Math.min(760,playerX-400));drawWorld();drawPlayer(400,430+playerY);drawHud();drawControls();if(menu)drawMenu();if(dialog)drawDialog();c.restore();postInvalidateDelayed(16);}
+        void drawWorld(){int sky=zone==1?0xff52677d:zone==2?0xff323b50:zone==3?0xff303744:0xff242a3b;rect(0,0,960,540,sky);
+            // distant skyline and pixel clouds
+            for(int i=0;i<12;i++){float x=i*115-camera*.28f;rect(x,180+(i%3)*24,75,250-(i%3)*30,zone==1?0xff38495c:0xff34394b);rect(x+12,200+(i%3)*24,12,18,0xffd4b77a);rect(x+38,200+(i%3)*24,12,18,0xffd4b77a);}
+            rect(0,400,960,140,0xff34343d);rect(0,430,960,110,0xff55515a);for(int i=0;i<20;i++)rect(i*55-camera%55,465,28,5,0xffd5bd82);
+            if(zone==0){building(70-camera,205,290,225,"PIRTECH LAB",0xff79604e);rect(145-camera,300,130,100,0xff262d3b);rect(160-camera,312,100,70,0xff75aab1);bench(520-camera,350);}
+            if(zone==1){building(120-camera,220,230,210,"ГОРОД",0xff5d6479);building(510-camera,245,260,185,"АРЕНДА",0xff6a584e);rect(650-camera,300,75,100,0xff242b3c);}
+            if(zone==2){building(110-camera,205,300,225,"PIRTECH STORE",0xff596b73);rect(150-camera,315,220,85,0xff243b48);for(int i=0;i<3;i++)phone(180+i*65-camera,340);}
+            if(zone==3){building(80-camera,190,440,240,"PIRTECH FACTORY",0xff60616b);for(int i=0;i<3;i++){rect(120+i*125-camera,315,75,45,0xff35434a);phone(140+i*125-camera,320);}}
+            // props, people and interaction marker
+            if(zone==0){npc(650-camera,430,0xffd8ad83);txt("МИРА",630-camera,365,12,white);}
+            if(zone==1){npc(440-camera,430,0xffb8c4d3);txt("КЛИЕНТ",415-camera,365,12,white);}
+            if(zone==2){npc(480-camera,430,0xffc79b79);txt("ПРОДАВЕЦ",450-camera,365,12,white);}
+            if(zone==3){npc(650-camera,430,0xffa5b5a8);txt("ИНЖЕНЕР",620-camera,365,12,white);}
+            rect(0,510,960,30,0xff171a25);txt("← НАЗАД",20,530,12,white);txt("ПЕРЕХОДЫ МЕЖДУ ЛОКАЦИЯМИ",650,530,11,0xffc8c2b5);
         }
-        void drawRoom(){
-            if(rooms[room]==null){
-                for(int i=0;i<rooms.length;i++)if(i!=room&&rooms[i]!=null){rooms[i].recycle();rooms[i]=null;}
-                try{rooms[room]=BitmapFactory.decodeStream(getAssets().open("rooms/room"+room+".png"));}catch(Exception ignored){}
-            }
-            if(rooms[room]!=null){p.setFilterBitmap(false);c.drawBitmap(rooms[room],null,new Rect(0,0,960,540),p);}
-            else {box(0,0,960,540,Color.rgb(22,25,37));box(30,55,900,440,Color.rgb(44,48,62));}
-            stroke(28,50,904,450,Color.rgb(150,142,128),5);
-            // Doors: each room has a clear, walkable exit.
-            box(430,48,100,15,Color.rgb(16,17,26));stroke(430,48,100,40,gold,3);
-            box(25,245,15,85,Color.rgb(16,17,26));box(920,245,15,85,Color.rgb(16,17,26));
-            text(names[room],34,34,18,Color.WHITE);
-        }
-        void drawObjects(){
-            // Furnishings and landmarks are intentionally chunky pixel shapes.
-            switch(room){
-                case 0: drawBed(180,165);drawLamp(760,150);drawNpc(680,300,0);break;
-                case 1: drawDesk(160,180);drawCrate(690,350);drawNpc(770,260,1);break;
-                case 2: drawBooks(170,170);drawBooks(730,170);drawNpc(480,260,2);break;
-                case 3: drawTree(210,170);drawTree(730,175);drawNpc(500,270,3);break;
-                case 4: drawPillar(210,160);drawPillar(730,160);drawNpc(480,270,4);break;
-                case 5: drawDesk(170,180);drawCrate(700,340);drawNpc(480,260,5);break;
-                case 6: drawPillar(220,160);drawPillar(720,160);drawNpc(480,270,6);break;
-                default: drawLamp(220,160);drawLamp(740,160);drawNpc(480,260,7);break;
-            }
-            // Collectible memory shards.
-            if(chapter<3){float[] xs={300,600,480},ys={300,370,160};for(int i=0;i<3;i++)if((chapter&(1<<i))==0)drawShard(xs[i],ys[i]);}
-        }
-        void drawCharacter(float x,float y,float z,int skin,boolean npc){
-            int ix=(int)x,iy=(int)y;
-            box(ix-11,iy-29,22,25,skin);box(ix-15,iy-8,30,22,Color.rgb(76,91,143));
-            box(ix-14,iy+12,10,10,Color.rgb(35,37,52));box(ix+4,iy+12,10,10,Color.rgb(35,37,52));
-            box(ix-7,iy-21,4,4,ink);box(ix+4,iy-21,4,4,ink);
-            box(ix-5,iy-13,10,2,Color.rgb(135,66,76));
-            if(!npc){box(ix-15,iy-33,30,4,Color.rgb(20,20,28));box(ix-14,iy-32,28,2,red);}
-        }
-        void drawNpc(float x,float y,int id){drawCharacter(x,y,1,Color.rgb(214,180,140),true);box(x-15,y-31,30,6,Color.rgb(55+id*12,90,120));}
-        void drawBed(float x,float y){box(x,y,160,85,Color.rgb(98,78,100));box(x+8,y+8,144,25,Color.rgb(211,199,190));box(x+8,y+38,144,39,Color.rgb(89,105,148));}
-        void drawLamp(float x,float y){box(x-5,y,10,100,Color.rgb(100,83,64));box(x-25,y-14,50,18,gold);box(x-40,y+86,80,12,Color.rgb(83,67,55));}
-        void drawDesk(float x,float y){box(x,y,160,55,Color.rgb(110,77,54));box(x+12,y+55,14,60,Color.rgb(73,55,48));box(x+134,y+55,14,60,Color.rgb(73,55,48));}
-        void drawCrate(float x,float y){box(x,y,70,65,Color.rgb(128,88,52));stroke(x,y,70,65,Color.rgb(205,160,91),4);stroke(x+8,y+8,54,49,Color.rgb(205,160,91),3);}
-        void drawBooks(float x,float y){for(int i=0;i<5;i++){box(x,y+i*22,105,17,new int[]{0xffa45c52,0xff64816f,0xff6e719d,0xffc49a55,0xff7c5c83}[i]);}}
-        void drawTree(float x,float y){box(x-8,y,16,95,Color.rgb(91,63,48));box(x-45,y-35,90,55,Color.rgb(47,104,76));box(x-32,y-55,64,35,Color.rgb(62,126,83));}
-        void drawPillar(float x,float y){box(x,y,42,160,Color.rgb(117,119,134));box(x-8,y,58,12,Color.rgb(174,173,179));box(x-8,y+148,58,12,Color.rgb(174,173,179));}
-        void drawShard(float x,float y){fill(gold);Path a=new Path();a.moveTo(x,y-15);a.lineTo(x+12,y);a.lineTo(x,y+17);a.lineTo(x-12,y);a.close();c.drawPath(a,p);stroke(x-5,y-7,10,14,Color.WHITE,2);}
-        void hud(){box(0,0,960,52,0xdd080a12);text("SOULBOUND",28,32,19,Color.WHITE);text(names[room],340,31,16,gold);text("ОСКОЛКИ "+Integer.bitCount(chapter&7)+"/3",760,31,14,Color.WHITE);
-            box(20,468,920,58,0xcc080a12);text("ПЕРЕМЕЩЕНИЕ",38,493,12,Color.LTGRAY);text("ИССЛЕДУЙ КОМНАТУ  •  ПОДОЙДИ К ПЕРСОНАЖУ И НАЖМИ «E»",38,514,13,Color.WHITE);
-        }
-        void drawHelp(){box(270,170,420,105,0xee10121d);stroke(270,170,420,105,gold,3);center("ТЫ ПРОСНУЛСЯ В НЕЗНАКОМОМ МЕСТЕ",480,205,15,Color.WHITE);center("Веди пальцем по левой части экрана,",480,232,14,Color.LTGRAY);center("чтобы ходить. Коснись NPC рядом для диалога.",480,254,13,Color.LTGRAY);}
-        void drawDialogue(){box(30,350,900,150,0xf0080a12);stroke(30,350,900,150,Color.WHITE,4);text(speaker,55,385,19,gold);wrap(line,55,420,830,23,16,Color.WHITE);text("КОСНИСЬ, ЧТОБЫ ПРОДОЛЖИТЬ  ▸",590,480,12,Color.LTGRAY);}
-        void wrap(String s,float x,float y,float width,int step,int size,int color){String cur="";int row=0;for(String word:s.split(" ")){String test=cur.isEmpty()?word:cur+" "+word;p.setTextSize(size);p.setTypeface(Typeface.MONOSPACE);if(p.measureText(test)>width){text(cur,x,y+row++*step,size,color);cur=word;}else cur=test;}text(cur,x,y+row*step,size,color);}
-        void interact(){
-            if(talking){dialogue++;String[] a=talks[room];if(dialogue>=a.length){talking=false;dialogue=0;if(room==1&&coins==0)coins++;invalidate();return;}line=a[dialogue];invalidate();return;}
-            if(showHelp){showHelp=false;invalidate();return;}
-            if(Math.abs(px-480)<105&&Math.abs(py-260)<110 || Math.abs(px-680)<110&&Math.abs(py-300)<100 || Math.abs(px-770)<100&&Math.abs(py-260)<100){
-                talking=true;dialogue=0;speaker=talks[room][0];line=talks[room].length>1?talks[room][1]:"Здесь тихо.";invalidate();return;
-            }
-            float[] xs={300,600,480},ys={300,370,160};for(int i=0;i<3;i++)if((chapter&(1<<i))==0&&Math.hypot(px-xs[i],py-ys[i])<55){chapter|=1<<i;coins+=5;line="Ты нашёл осколок памяти.";speaker="СИСТЕМА";talking=true;dialogue=0;invalidate();return;}
-            if(py<100){room=(room+7)%8;px=480;py=420;save();}
-            else if(px<65){room=(room+7)%8;px=875;save();}
-            else if(px>895){room=(room+1)%8;px=85;save();}
-            else if(py>450){room=(room+1)%8;px=480;py=105;save();}
-            invalidate();
-        }
-        @Override public boolean onTouchEvent(MotionEvent e){
-            float x=e.getX()/scaleX,y=e.getY()/scaleY;
-            if(e.getAction()==MotionEvent.ACTION_DOWN){if(talking)return true;if(showHelp){showHelp=false;return true;}if(x>700&&y>390)return true;joyX=(x-180)/130f;joyY=(y-340)/130f;float len=(float)Math.hypot(joyX,joyY);if(len>1){joyX/=len;joyY/=len;}return true;}
-            if(e.getAction()==MotionEvent.ACTION_MOVE){if(x<560){joyX=Math.max(-1,Math.min(1,(x-180)/130f));joyY=Math.max(-1,Math.min(1,(y-340)/130f));}return true;}
-            if(e.getAction()==MotionEvent.ACTION_UP){joyX=joyY=0;if(x>700&&y>390)interact();else if(y<80&&x>850)save();return true;}return true;
-        }
+        void building(float x,float y,float w,float h,String label,int col){rect(x,y,w,h,col);rect(x-8,y-12,w+16,18,0xff292d3a);for(int i=0;i<4;i++)for(int j=0;j<2;j++){rect(x+18+i*65,y+35+j*65,35,32,0xffa9c6c4);outline(x+18+i*65,y+35+j*65,35,32,0xff283542,3);}rect(x+w/2-48,y+h-75,96,75,0xff30303b);center(label,x+w/2,y+22,13,white);}
+        void bench(float x,float y){rect(x,y,170,18,0xffa9784f);rect(x+12,y+18,12,55,0xff59483c);rect(x+145,y+18,12,55,0xff59483c);phone(x+60,y-20);}
+        void phone(float x,float y){rect(x,y,26,42,0xff111723);outline(x,y,26,42,0xffd2d6d2,2);rect(x+4,y+5,18,27,0xff66aab5);rect(x+10,y+35,6,3,white);}
+        void npc(float x,float y,int shirt){rect(x-12,y-62,24,25,0xffd7a982);rect(x-15,y-37,30,31,shirt);rect(x-13,y-6,10,8,0xff252936);rect(x+3,y-6,10,8,0xff252936);rect(x-9,y-52,4,4,ink);rect(x+5,y-52,4,4,ink);}
+        void drawPlayer(float x,float y){int step=(int)(System.currentTimeMillis()/150%2);rect(x-13,y-62,26,25,0xffd9b18b);rect(x-15,y-37,30,32,0xff426c9b);rect(x-12,y-5,10,10,0xff202431);rect(x+2,y-5,10,10,0xff202431);rect(x-9,y-52,4,4,ink);rect(x+5,y-52,4,4,ink);rect(x-15,y-65,30,6,0xff25212a);rect(x-13,y-64,26,4,0xffd7bd75);if(step==1){rect(x-15,y-3,10,4,0xffe0c4a0);}}
+        void drawHud(){rect(0,0,960,55,0xe9111420);txt("PHONE EMPIRE",22,25,17,white);txt(zones[zone],22,45,11,gold);txt("₽ "+money,510,25,16,0xff9de0a9);txt("РЕПУТАЦИЯ "+rep,690,25,12,white);txt("ТЕЛЕФОНЫ "+phones+"  •  УР. "+level,690,44,11,cyan);}
+        void drawControls(){rect(24,442,75,75,0x55333344);rect(110,442,75,75,0x55333344);rect(795,442,65,75,0x55333344);rect(872,442,65,75,0x884e7180);center("◀",61,490,28,white);center("▶",147,490,28,white);center("↑",827,490,26,white);center("E",904,490,26,white);}
+        void drawMenu(){rect(100,75,760,365,0xf0161b29);outline(100,75,760,365,gold,4);txt("PIRTECH — ПАНЕЛЬ КОМПАНИИ",130,112,20,white);txt("ДЕНЬ "+day+"     КАПИТАЛ: ₽ "+money,130,143,14,cyan);
+            String[] opts={"1. Разработать новую модель смартфона  (- ₽ 25 000)","2. Выпустить партию из 10 телефонов  (- ₽ 40 000)","3. Продать партию и получить прибыль  (+ ₽ 75 000)","4. Улучшить мастерскую / завод  (- ₽ 60 000)","5. Реклама бренда  (- ₽ 15 000)","6. Завершить рабочий день"};
+            for(int i=0;i<opts.length;i++){rect(125,165+i*38,710,31,i==selected?0xff46546a:0xff262d3c);txt(opts[i],142,186+i*38,13,white);}txt("Нажми на строку, чтобы выполнить действие.  E — закрыть",130,414,12,gold);}
+        void drawDialog(){rect(35,350,890,145,0xf0161b29);outline(35,350,890,145,white,3);txt(people[zone],60,382,17,gold);txt(message,60,421,15,white);txt("НАЖМИ E, ЧТОБЫ ЗАКРЫТЬ",650,470,11,cyan);}
+        void interact(){if(dialog){dialog=false;return;}if(menu){int cost=0;switch(selected){case 0:cost=25000;if(money>=cost){money-=cost;level++;rep+=2;message="Новая модель PIRTECH Nova готова к производству."; }break;case 1:cost=40000;if(money>=cost){money-=cost;phones+=10;message="Партия из 10 смартфонов собрана."; }break;case 2:if(phones>0){money+=phones*7500;rep+=phones;phones=0;message="Продажи прошли успешно! Репутация растёт.";}else message="Сначала выпусти партию смартфонов.";break;case 3:cost=60000;if(money>=cost){money-=cost;level++;message="Оборудование улучшено. Производство стало эффективнее.";}break;case 4:cost=15000;if(money>=cost){money-=cost;rep+=8;message="Рекламная кампания повысила известность бренда.";}break;case 5:day++;money+=level*5000;message="День завершён. Доход от бизнеса: ₽ "+(level*5000);menu=false;save();return;}if(cost>0&&money<cost)message="Недостаточно денег для этого действия.";save();dialog=true;menu=false;return;}
+            if(zone==0){menu=true;selected=0;}else if(zone==1){message="Покупатель: «Когда появится ваш новый смартфон? Я слежу за PIRTECH!»";dialog=true;rep++;}else if(zone==2){menu=true;selected=2;}else{menu=true;selected=3;}invalidate();}
+        @Override public boolean onTouchEvent(android.view.MotionEvent e){float x=e.getX()/sx,y=e.getY()/sy;int a=e.getActionMasked();if(a==MotionEvent.ACTION_DOWN){if(menu){if(y>160&&y<400){selected=Math.max(0,Math.min(5,(int)((y-165)/38));invalidate();}else if(y>405){menu=false;}return true;}if(dialog){dialog=false;invalidate();return true;}if(y>435){if(x<100)left=true;else if(x<200)right=true;else if(x>860)interact();else if(x>780)jump=true;}else if(x>300&&y>300){interact();}invalidate();return true;}if(a==MotionEvent.ACTION_MOVE){return true;}if(a==MotionEvent.ACTION_UP){left=right=jump=false;return true;}return true;}
     }
 }
