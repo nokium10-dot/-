@@ -1,19 +1,17 @@
-# PHONE EMPIRE — 1.0
+# PHONE EMPIRE — 1.2.0
 
-2D Android business tycoon about building a smartphone company. Russian interface, story campaign, tasks, research, production, retail, employees, upgrades, generated soundtrack and Russian text-to-speech dialogue.
+A 2D side-view pixel-art Android business simulator. The visual style uses chunky retro pixel graphics; the game is about building a smartphone brand, not a fantasy story.
 
 ## Gameplay
-- Start with a tiny repair-and-sales workshop and 150,000 ₽.
-- Design phone models by choosing components and balancing cost, quality and retail price.
-- Buy parts, assemble production batches, sell phones and manage cash flow.
-- Complete a 12-step story campaign, unlock new locations and grow reputation.
-- Research screens, cameras, processors, batteries and manufacturing.
-- Hire staff, upgrade the workshop, run marketing campaigns and manage daily expenses.
-- Autosave, manual save, sound/music controls and Russian spoken story dialogue.
+- Walk left and right through a side-scrolling world and jump.
+- Explore your workshop, city street, branded phone store and factory.
+- Talk to a designer, customers, shop staff and engineers.
+- Design new smartphone models, manufacture batches, sell devices and grow reputation.
+- Upgrade facilities, advertise PIRTECH and collect daily business income.
+- Russian interface, touch controls, autosave and landscape orientation.
+- Original pixel-art backgrounds are generated during the Android build; Android Russian text-to-speech availability depends on the device.
 
 ## Build
 `gradle :phone-empire:assembleDebug`
 
 APK: `phone-empire/build/outputs/apk/debug/phone-empire-debug.apk`
-
-The game uses Android Canvas for its 2D art, a generated original looping soundtrack and Android's Russian TextToSpeech engine (voice availability depends on the device's installed speech services).
