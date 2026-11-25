@@ -176,9 +176,10 @@ bot.command("start", async (ctx) => {
     "🏅 /nachievements — достижения\n" +
     "⚒️ /nallup — массовое улучшение карточек\n" +
     "🏆 /ntop — рейтинг этой группы\n" +
-    "⚙️ /nsettings — титулы и фоны профиля",
-    "📨 Поддержка — просто напиши сообщение боту."
-  , { reply_markup: new InlineKeyboard().url("TikTok", "https://www.tiktok.com/@pirozki380") });
+    "⚙️ /nsettings — титулы и фоны профиля\n" +
+    "📨 Поддержка — просто напиши сообщение боту.",
+    { reply_markup: new InlineKeyboard().url("TikTok", "https://www.tiktok.com/@pirozki380") }
+  );
 });
 
 bot.command("ncard", async (ctx) => {
