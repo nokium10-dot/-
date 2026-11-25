@@ -39,7 +39,7 @@ Owner: @nokium, Telegram ID `71195190`. The `/nadmin` panel is available only to
 - `/nsettings` — equip unlocked profile titles and backgrounds.
 - `/nallup` — choose a rarity and confirm a bulk upgrade of every owned card at that rarity.
 - `/ntop` — leaderboard for the current group.
-- `/nadmin` — owner-only statistics, catalog overview, host load, internet check and block controls.
+- `/nadmin` — owner-only statistics, catalog overview, host load, internet check and block controls.\n- `/ncatalog` — owner-only list of all 110 model IDs for attaching official photos.
 - `/nblock ID` and `/nunblock ID` — owner-only user blocking.
 - `/nreply ID text` — owner-only reply to a user through the bot. Private messages to the bot are forwarded to the owner for support.\n- `/nsetphoto` — attach an official phone photo by sending it in the owner's private chat with caption `/nsetphoto card-id`. The photo is stored by Telegram file ID and used unchanged.\n- `/nclearphoto card-id` — remove the saved photo reference for a card.
 
@@ -47,7 +47,7 @@ Owner: @nokium, Telegram ID `71195190`. The `/nadmin` panel is available only to
 
 - Duplicate cards are allowed and counted individually.
 - Collection is shared between groups; group leaderboard is scoped to the current group.
-- The profile balance is displayed in rubles. T-Coins and P-Coins are not used.
+- The profile balance is displayed in rubles as an in-game score only; it is not cash and cannot be purchased, wagered or withdrawn. T-Coins and P-Coins are not used.
 - Achievement rewards grant rubles and unlock profile titles/backgrounds.
 - Bulk upgrade is deterministic: every 3 cards of one rarity are exchanged for 1 card of the next rarity. Any remainder is kept. There is no chance-based loss and no upgrade fee.
 - The `/ncard` cooldown is stored persistently in PostgreSQL.
