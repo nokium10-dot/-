@@ -428,7 +428,7 @@ bot.callbackQuery(/^admin:(stats|catalog|system|internet|blockhelp)$/, async (ct
       await ctx.reply(`⚠️ Проверка интернета не прошла: ${error.message}`);
     }
   } else {
-    await ctx.reply("🚫 Управление блокировками:\n/nblock ID — заблокировать пользователя\n/nunblock ID — снять блокировку\n/nreply ID текст — ответить пользователю через бота.");
+    await ctx.reply("🚫 Управление пользователями:\n/nblock ID — заблокировать пользователя\n/nunblock ID — снять блокировку\n/nreply ID текст — ответить пользователю\n/ncatalog — список ID моделей\n/nsetphoto — добавить официальное фото с подписью и ID модели.");
   }
 });
 
