@@ -41,7 +41,7 @@ Owner: @nokium, Telegram ID `71195190`. The `/nadmin` panel is available only to
 - `/ntop` — leaderboard for the current group.
 - `/nadmin` — owner-only statistics, catalog overview, host load, internet check and block controls.
 - `/nblock ID` and `/nunblock ID` — owner-only user blocking.
-- `/nreply ID text` — owner-only reply to a user through the bot. Private messages to the bot are forwarded to the owner for support.
+- `/nreply ID text` — owner-only reply to a user through the bot. Private messages to the bot are forwarded to the owner for support.\n- `/nsetphoto` — attach an official phone photo by sending it in the owner's private chat with caption `/nsetphoto card-id`. The photo is stored by Telegram file ID and used unchanged.\n- `/nclearphoto card-id` — remove the saved photo reference for a card.
 
 ## Game rules currently in code
 
@@ -64,6 +64,6 @@ On startup, the app creates or migrates:
 - `ncard_cooldowns`
 - `ncard_group_members`
 - `ncard_admin_log`
-- `ncard_user_blocks`
+- `ncard_user_blocks`\n- `ncard_card_assets`
 
 Without `DATABASE_URL`, storage falls back to temporary process memory and data is lost when the service restarts.
