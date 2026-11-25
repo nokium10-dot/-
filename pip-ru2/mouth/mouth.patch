@@ -1,0 +1,286 @@
+diff --git a/sim/wasm.c b/sim/wasm.c
+index 2bceecd..cc2bd56 100644
+--- a/sim/wasm.c
++++ b/sim/wasm.c
+@@ -51,6 +51,8 @@ EMSCRIPTEN_KEEPALIVE void sim_key(int k) { pip_key((char)k); }
+ EMSCRIPTEN_KEEPALIVE void sim_time(double unix_s, int tz_min) { shell_time((int64_t)unix_s, tz_min); }
+ EMSCRIPTEN_KEEPALIVE void sim_action(int act) { pip_action(act); }
+ EMSCRIPTEN_KEEPALIVE void sim_auto(int on) { pip_auto(on); }
++EMSCRIPTEN_KEEPALIVE void sim_feature(int f, int on) { pip_feature(f, on); }
++EMSCRIPTEN_KEEPALIVE int sim_feature_on(int f) { return pip_feature_on(f); }
+ /* persistence: JS copies the pet state to localStorage and back through this buffer */
+ static uint8_t pet_buf[256];
+ EMSCRIPTEN_KEEPALIVE uint8_t *sim_pet_buf(void) { return pet_buf; }
+diff --git a/ui/face.c b/ui/face.c
+index e18af32..85a4377 100644
+--- a/ui/face.c
++++ b/ui/face.c
+@@ -527,13 +527,15 @@ FACE_HOT static void blush_rows(const face_t *f, const eye_t *e, uint16_t *buf,
+         }
+ }
+ 
++#include "face_mouth.inc"
++
+ /* one frame: what to clear, what to paint, in which order; shared by the bands */
+ typedef struct {
+     face_t *f;
+     uint16_t *buf;
+     int w, h, first, y_start;
+-    bool blush;
+-    face_rect_t clear[4];
++    bool blush, mouth;
++    face_rect_t clear[5];
+     eye_setup_t eye[2];
+ } frame_t;
+ 
+@@ -543,7 +545,7 @@ FACE_HOT static void frame_rows(void *ctx, int y0, int y1)
+     frame_t *fr = ctx;
+     band_t *band = &bands[y0 == fr->y_start ? 0 : 1];
+     PS
+-    for (int i = 0; i < 4; i++) { /* last frame's eyes and cheeks go first */
++    for (int i = 0; i < 5; i++) { /* last frame's eyes, cheeks and mouth go first */
+         face_rect_t r = fr->clear[i];
+         for (int y = maxi(r.y1, y0); r.x2 >= r.x1 && y <= r.y2 && y < y1; y++) memset(&fr->buf[y * fr->w + r.x1], 0, (r.x2 - r.x1 + 1) * 2);
+     }
+@@ -554,6 +556,7 @@ FACE_HOT static void frame_rows(void *ctx, int y0, int y1)
+         for (int i = 0; i < 2; i++) blush_rows(fr->f, &fr->f->eye[i], fr->buf, fr->w, fr->h, y0, y1);
+     PE(5);
+     }
++    if (fr->mouth) mouth_rows(fr->f, fr->buf, fr->w, fr->h, y0, y1);
+     {
+     PS
+     for (int n = 0; n < 2; n++) { /* the smaller (farther) eye first, so the near one overlaps it */
+@@ -575,14 +578,16 @@ face_rect_t face_draw(face_t *f, uint16_t *buf, int w, int h)
+     fr.f = f, fr.buf = buf, fr.w = w, fr.h = h;
+     fr.blush = f->blush > 0.01f;
+     fr.first = f->eye[0].w * f->eye[0].h < f->eye[1].w * f->eye[1].h ? 0 : 1;
+-    for (int i = 0; i < 4; i++) fr.clear[i] = f->drawn[i], dirty = rect_union(dirty, f->drawn[i]);
++    fr.mouth = f->mouth.alpha > 0.01f;
++    for (int i = 0; i < 5; i++) fr.clear[i] = f->drawn[i], dirty = rect_union(dirty, f->drawn[i]);
++    f->drawn[4] = fr.mouth ? mouth_rect(&f->mouth, w, h) : none;
+     for (int i = 0; i < 2; i++) {
+         float rx, ry, cx, cy;
+         f->drawn[2 + i] = fr.blush ? blush_rect(&f->eye[i], w, h, &rx, &ry, &cx, &cy) : none;
+         eye_prepare(f, &f->eye[i], w, h, &fr.eye[i]);
+         f->drawn[i] = fr.eye[i].r;
+     }
+-    for (int i = 0; i < 4; i++) dirty = rect_union(dirty, f->drawn[i]);
++    for (int i = 0; i < 5; i++) dirty = rect_union(dirty, f->drawn[i]);
+     if (dirty.x2 < dirty.x1) return dirty;
+     fr.y_start = dirty.y1;
+     if (face_parallel) face_parallel(frame_rows, &fr, dirty.y1, dirty.y2 + 1);
+diff --git a/ui/face.h b/ui/face.h
+index c522983..4d19a2f 100644
+--- a/ui/face.h
++++ b/ui/face.h
+@@ -25,14 +25,29 @@ typedef struct {
+ 
+ typedef struct { int x1, y1, x2, y2; } face_rect_t; /* inclusive; empty when x2 < x1 */
+ 
++/* The mouth: pure white, below the eyes. A band along a centre line (see face_mouth.inc). alpha 0 = no mouth. */
++typedef struct {
++    float x, y;       /* centre on screen, px */
++    float roll;       /* rad, clockwise */
++    float w, h;       /* full width; opening height in the middle (0 = a line) */
++    float thick;      /* line thickness, px */
++    float curve;      /* + corners up (a smile), - corners down, px of sag */
++    float tilt;       /* + right corner higher, px */
++    float wave, wave_t; /* wavy line: amplitude px and its phase */
++    float boxy;       /* 0 rounded .. 1 squared off ends */
++    float alpha;      /* 0..1 */
++    uint16_t color;   /* RGB565, plain */
++} mouth_t;
++
+ typedef struct {
+     eye_t eye[2];
++    mouth_t mouth;
+     uint16_t color, pupil_color, heart_color; /* RGB565 */
+     float shading;               /* strength of the soft shadow crescent on the lower right, 0 = flat */
+     float blush;                 /* pink cheeks under the eyes, 0..1 */
+     uint16_t blush_color, vein_color, water_color;
+     uint8_t swapped;             /* buf holds byte-swapped RGB565 (the panel's order); colours above stay plain */
+-    face_rect_t drawn[4];        /* render state: boxes painted last frame (eyes, cheeks) */
++    face_rect_t drawn[5];        /* render state: boxes painted last frame (eyes, cheeks, mouth) */
+ } face_t;
+ 
+ /* Clears last frame's eyes and paints the new ones into a w*h RGB565 buffer on black.
+diff --git a/ui/pip.c b/ui/pip.c
+index 25afeb6..f00e12c 100644
+--- a/ui/pip.c
++++ b/ui/pip.c
+@@ -9,6 +9,7 @@
+ #include "voice.h"
+ #include <math.h>
+ #include <string.h>
++#include "mouth_defs.h"
+ 
+ #define SCR 466
+ #define TAP_MS 300
+@@ -150,7 +151,7 @@ static struct {
+     lv_obj_t *canvas, *text;
+     lv_draw_buf_t *buf, *back; /* back: a second canvas when the face renders in the background (face_start) */
+     face_t rface;              /* the frame being drawn in the background: a snapshot of face */
+-    face_rect_t front_rects[4], back_rects[4];
++    face_rect_t front_rects[5], back_rects[5];
+     bool pending;
+     uint32_t last_swap;
+     face_t face;
+@@ -164,6 +165,7 @@ static struct {
+     spring_t shape[2][SHAPE_N];
+     spring_t open, squash, look_x, look_y, head_yaw, head_pitch, head_roll, dizzy;
+     spring_t tint[3], blush, tremble, nod, wag;
++    spring_t mouth[MOUTH_N], mouth_on, mouth_talk;
+     const char *text_shown;
+     float wink_t, next_wink;
+     /* scene effects */
+@@ -553,6 +555,13 @@ static void step(float dt, const mood_def_t *m, bool dizzy)
+     spring(&s.tremble, m->tremble, 20, 1.0f, dt);
+     spring(&s.nod, m->nod, 20, 1.0f, dt);
+     spring(&s.wag, m->wag, 20, 1.0f, dt);
++    {   /* the mouth chases its mood's shape like the eyes do (same springy overshoot) */
++        const mouth_def_t *md = &mouths[s.shown >= 0 && s.shown < PIP_MOOD_COUNT && mouths[s.shown].w > 0 ? s.shown : PIP_NEUTRAL];
++        const float *tf = (const float *)md;
++        for (int j = 0; j < MOUTH_N; j++) spring(&s.mouth[j], tf[j], 220 * (1 - 0.6f * slow), 0.5f, dt);
++        spring(&s.mouth_on, FEAT(PIP_F_MOUTH) ? 1 : 0, 30, 1.0f, dt);
++        spring(&s.mouth_talk, voice_busy() && FEAT(PIP_F_VOICE) ? 1 : 0, 160, 0.7f, dt);
++    }
+ 
+     /* the eyes jump to the target, the head follows slowly and the eyes counter-rotate */
+     float lean = s.eco ? 0 : 1; /* saving energy the eyes hold still instead of rolling with every tilt */
+@@ -584,6 +593,62 @@ static void power(float dt)
+     }
+ }
+ 
++/* Where the mouth is and how it moves: it sits under the middle of the eyes, turns with the head, and every mood
++   adds its own life to the shape (breathing, a quiver, dizzy waves, chatter while he speaks). */
++static void mouth_fill(int mood, float hy, float hr, float sq, const mood_def_t *m)
++{
++    mouth_t *o = &s.face.mouth;
++    float v[MOUTH_N];
++    for (int j = 0; j < MOUTH_N; j++) v[j] = s.mouth[j].x;
++    float w = fmaxf(v[0], 4), h = fmaxf(v[1], 0), thick = fmaxf(v[2], 4), curve = v[3], tilt = v[4], wave = v[5];
++    float boxy = fminf(fmaxf(v[6], 0), 1), y = v[7], talk = v[8];
++    float chat = fabsf(sinf(s.t * 13.0f)) * (0.55f + 0.45f * sinf(s.t * 4.7f)); /* syllables */
++    float tk = fmaxf(s.mouth_talk.x, 0);
++    if (mood == PIP_ASLEEP || mood == PIP_SLEEPY || mood == PIP_TIRED || mood == PIP_EXHAUSTED || s.intro >= 0)
++        h += 6 * (0.5f + 0.5f * sinf(s.t * 1.6f)), w *= 1 + 0.04f * sinf(s.t * 1.6f); /* breathing */
++    if (mood == PIP_SAD || mood == PIP_HURT || mood == PIP_LONELY || mood == PIP_DESPONDENT)
++        wave += 2.2f * sinf(s.t * 17) * (0.5f + 0.5f * sinf(s.t * 1.3f)), tilt += 1.5f * sinf(s.t * 11); /* the lip quivers */
++    if (mood == PIP_RAGE || mood == PIP_FURIOUS || mood == PIP_ANGRY)
++        h += (mood == PIP_RAGE ? 9 : 5) * sinf(s.t * (mood == PIP_RAGE ? 22 : 9)), curve -= 3 * sinf(s.t * 6); /* growling */
++    if (mood == PIP_SWEARING) h += 10 * fabsf(sinf(s.t * 15)), wave += 4 * sinf(s.t * 20);
++    if (mood == PIP_AFRAID || mood == PIP_NERVOUS) wave += 3 * sinf(s.t * 30);
++    if (mood == PIP_STONED || mood == PIP_COMFY || mood == PIP_CONTENT) curve += 2 * sinf(s.t * 1.1f);
++    if (mood == PIP_PUZZLED || mood == PIP_CURIOUS) tilt += 4 * sinf(s.t * 1.9f);
++    if (mood == PIP_LOVE || mood == PIP_HAPPY || mood == PIP_CHEEKY) curve += 2.5f * sinf(s.t * 3.0f);
++    if (mood == PIP_NO) tilt += 5 * sinf(s.t * 13);
++    float spd = 2.5f + 6 * fmaxf(s.dizzy.x, 0) + (mood == PIP_NAUSEOUS ? 1.5f : 0);
++    o->wave_t = s.t * spd + 1.3f;
++    /* speaking: the jaw drops and flaps with the sound, and a smile or frown flattens a little */
++    h += tk * talk * (0.35f + 0.9f * chat);
++    thick += tk * 1.5f * chat;
++    curve *= 1 - 0.35f * tk;
++    h *= 1 + 0.7f * sq, w *= 1 - 0.25f * sq; /* a squash: the mouth bounces with the face */
++    float cosy = cosf(hy);
++    w *= 0.65f + 0.35f * cosy;
++    /* under the middle of the eyes, turned with the head and leaving room for the eyes when they are tall */
++    float mx_ = (s.face.eye[0].x + s.face.eye[1].x) * 0.5f, my_ = (s.face.eye[0].y + s.face.eye[1].y) * 0.5f;
++    float sr = sinf(hr), cr = cosf(hr);
++    float tall = fmaxf(s.face.eye[0].h, s.face.eye[1].h) * 0.5f; /* closed eyes leave more room */
++    float dist = fmaxf(y * (0.85f + 0.15f * s.shape[0][1].x / 138.0f), tall * 0.62f + h * 0.5f + 20);
++    dist = fminf(dist, y + 22);
++    o->x = mx_ - sr * dist;
++    o->y = my_ + cr * dist;
++    o->roll = hr;
++    /* keep it inside the round screen */
++    {
++        float dx = o->x - SCR / 2, dy = o->y - SCR / 2, d = sqrtf(dx * dx + dy * dy) + 1e-3f;
++        float reach = fmaxf(w * 0.5f, h * 0.5f + thick) + fabsf(curve) * 0.5f + 8;
++        float lim = SCR / 2 - 10 - reach * 0.75f;
++        if (d > lim && lim > 20) o->x = SCR / 2 + dx / d * lim, o->y = SCR / 2 + dy / d * lim;
++        float room = sqrtf(fmaxf(1, (SCR / 2 - 8) * (SCR / 2 - 8) - (o->y - SCR / 2 + h * 0.5f + thick) * (o->y - SCR / 2 + h * 0.5f + thick)));
++        if (w * 0.5f > room - 6) w = fmaxf(20, (room - 6) * 2);
++    }
++    o->w = w, o->h = h, o->thick = thick, o->curve = curve, o->tilt = tilt, o->wave = wave, o->boxy = boxy;
++    o->color = 0xFFFF;
++    o->alpha = fminf(fmaxf(s.mouth_on.x, 0), 1) * (s.dark ? 0 : 1);
++    (void)m;
++}
++
+ static void update(float dt)
+ {
+     power(dt);
+@@ -792,13 +857,14 @@ static void update(float dt)
+         if (worst <= 0) break;
+         for (int i = 0; i < 2; i++) s.face.eye[i].x += mx, s.face.eye[i].y += my;
+     }
++    mouth_fill(mood, hy, hr, sq, m);
+ }
+ 
+ /* LVGL redraws where an eye or a cheek was and is, a box each: boxes far apart stay apart, so the black between
+    the eyes is not copied to the screen again */
+ static void redraw(const face_rect_t *was, const face_rect_t *now)
+ {
+-    for (int i = 0; i < 4; i++) {
++    for (int i = 0; i < 5; i++) {
+         face_rect_t a = was[i].x2 >= was[i].x1 ? was[i] : now[i], b = now[i].x2 >= now[i].x1 ? now[i] : a;
+         if (a.x2 < a.x1) continue;
+         lv_area_t r = {LV_MIN(a.x1, b.x1), LV_MIN(a.y1, b.y1), LV_MAX(a.x2, b.x2), LV_MAX(a.y2, b.y2)};
+@@ -826,7 +892,7 @@ static struct {
+ /* The wireframe is plotted straight into the face's buffer, clipped to the boxes the renderer paints anyway (they are
+    wiped with the next frame): no extra LVGL drawing, no extra area to refresh. */
+ static uint16_t *dev_px;
+-static face_rect_t dev_clip[4];
++static face_rect_t dev_clip[5];
+ static uint16_t dev_ink(uint32_t rgb)
+ {
+     uint16_t c = (uint16_t)(((rgb >> 8) & 0xF800) | ((rgb >> 5) & 0x07E0) | ((rgb >> 3) & 0x001F));
+@@ -835,7 +901,7 @@ static uint16_t dev_ink(uint32_t rgb)
+ 
+ static void dev_dot(int x, int y, uint16_t c)
+ {
+-    for (int i = 0; i < 4; i++) {
++    for (int i = 0; i < 5; i++) {
+         const face_rect_t *r = &dev_clip[i];
+         if (x >= r->x1 && x <= r->x2 && y >= r->y1 && y <= r->y2) { dev_px[y * SCR + x] = c; return; }
+     }
+@@ -872,7 +938,7 @@ static void dev_paint(uint16_t *px, const face_rect_t *clip)
+         dev_line(eye->x, eye->y, gx, gy, white, false);
+         dev_line(gx - 8, gy, gx + 8, gy, white, false), dev_line(gx, gy - 8, gx, gy + 8, white, false);
+     }
+-    for (int i = 0; i < 4; i++) { /* what the renderer repainted */
++    for (int i = 0; i < 5; i++) { /* what the renderer repainted */
+         const face_rect_t *r = &clip[i];
+         if (r->x2 < r->x1) continue;
+         dev_line(r->x1, r->y1, r->x2, r->y1, pink, false), dev_line(r->x2, r->y1, r->x2, r->y2, pink, false);
+@@ -984,7 +1050,7 @@ static void tick_cb(lv_timer_t *t)
+     }
+     if (s.eco && lv_tick_elaps(s.last_draw) < ECO_FRAME_MS) return;
+     s.last_draw = lv_tick_get();
+-    face_rect_t was[4];
++    face_rect_t was[5];
+     memcpy(was, s.face.drawn, sizeof was);
+     face_draw(&s.face, (uint16_t *)s.buf->data, SCR, SCR);
+     dev_paint((uint16_t *)s.buf->data, s.face.drawn);
+@@ -1040,7 +1106,7 @@ void pip_create(lv_obj_t *parent)
+         s.back = lv_draw_buf_create(SCR, SCR, cf, 0);
+         LV_ASSERT_MALLOC(s.back);
+         lv_draw_buf_clear(s.back, NULL);
+-        for (int i = 0; i < 4; i++) s.front_rects[i] = s.back_rects[i] = (face_rect_t){0, 0, -1, -1};
++        for (int i = 0; i < 5; i++) s.front_rects[i] = s.back_rects[i] = (face_rect_t){0, 0, -1, -1};
+     }
+     s.canvas = lv_canvas_create(parent);
+     lv_canvas_set_draw_buf(s.canvas, s.buf);
+diff --git a/ui/pip.h b/ui/pip.h
+index e20bbd0..31e466b 100644
+--- a/ui/pip.h
++++ b/ui/pip.h
+@@ -30,7 +30,7 @@ void pip_action(int act);                         /* PIP_ACT_*: feed, play */
+ const void *pip_pet_state(size_t *size);
+ bool pip_pet_restore(const void *data, size_t size);
+ /* Things he reacts to, each can be switched off (the debug page, filming) */
+-enum { PIP_F_SHAKE, PIP_F_BLOW, PIP_F_FACEDOWN, PIP_F_VOICE, PIP_F_BATTERY, PIP_F_TIME, PIP_F_NOISE, PIP_F_COUNT };
++enum { PIP_F_SHAKE, PIP_F_BLOW, PIP_F_FACEDOWN, PIP_F_VOICE, PIP_F_BATTERY, PIP_F_TIME, PIP_F_NOISE, PIP_F_MOUTH, PIP_F_COUNT };
+ void pip_feature(int f, bool on);
+ bool pip_feature_on(int f);
+ void *pip_pet(void); /* the live pet_t (pip_pet), for the debug page */
