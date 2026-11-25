@@ -27,7 +27,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: telegram-ai-bot
-        run: npm ci
+        run: npm install
 
       - name: Create encrypted PostgreSQL backup
         working-directory: telegram-ai-bot
