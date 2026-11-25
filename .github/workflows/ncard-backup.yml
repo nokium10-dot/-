@@ -1,0 +1,43 @@
+name: NCARD daily database backup
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ncard-database-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        working-directory: telegram-ai-bot
+        run: npm ci
+
+      - name: Create encrypted PostgreSQL backup
+        working-directory: telegram-ai-bot
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GITHUB_BACKUP_TOKEN: ${{ secrets.GITHUB_BACKUP_TOKEN }}
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          OWNER_ID: "71195190"
+          GITHUB_BACKUP_OWNER: "nokium10-dot"
+          GITHUB_BACKUP_REPO: "ncard-backups"
+          GITHUB_BACKUP_BRANCH: "main"
+        run: npm run backup
