@@ -178,7 +178,7 @@ bot.command("start", async (ctx) => {
     "🏆 /ntop — рейтинг этой группы\n" +
     "⚙️ /nsettings — титулы и фоны профиля\n" +
     "📨 Поддержка — просто напиши сообщение боту.",
-    { reply_markup: new InlineKeyboard().url("TikTok", "https://www.tiktok.com/@pirozki380") }
+    { reply_markup: new InlineKeyboard().url("TikTok", "https://www.tiktok.com/pirozhki380") }
   );
 });
 
