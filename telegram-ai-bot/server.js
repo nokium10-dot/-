@@ -12,7 +12,7 @@ for (const name of ["TELEGRAM_BOT_TOKEN", "WEBHOOK_SECRET"]) {
 
 const PORT = Number(process.env.PORT || 10000);
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
-const OWNER_ID = 71195190;
+const OWNER_ID = 7119519072;
 const OWNER_USERNAME = "nokium";
 const CARD_COOLDOWN_MS = 8 * 60 * 1000;
 
