@@ -82,6 +82,28 @@ function money(value) {
   return `${Number(value || 0).toLocaleString("ru-RU")} ₽`;
 }
 
+async function sendCardPhoto(ctx, card, options = {}) {
+  const savedFileId = await store.getCardPhoto(card.id);
+  if (savedFileId) {
+    return ctx.replyWithPhoto(savedFileId, options);
+  }
+  if (!card.imageUrl) return null;
+
+  try {
+    // Telegram fetches the image and sends it as a native photo message.
+    // Save the returned file_id so future sends no longer depend on the source URL.
+    const sent = await ctx.replyWithPhoto(card.imageUrl, options);
+    const uploadedPhoto = sent.photo?.at(-1);
+    if (uploadedPhoto?.file_id) {
+      await store.setCardPhoto(card.id, uploadedPhoto.file_id);
+    }
+    return sent;
+  } catch (error) {
+    console.warn(`Could not send card photo for ${card.id}:`, error.message);
+    return null;
+  }
+}
+
 async function checkAchievements(ctx, collection, card) {
   const userId = ctx.from.id;
   const ids = [];
@@ -192,12 +214,11 @@ bot.command("ncard", async (ctx) => {
       `📱 ${card.name}\\n🏭 Производитель: ${card.brand}\\n` +
       `${rarityColor} Редкость: ${card.rarity}\\n💰 Стоимость: ${money(card.value)}\\n\\n` +
       "⏳ Следующая карточка через 8 минут.";
-    const storedPhoto = await store.getCardPhoto(card.id);
-    if (storedPhoto) {
-      await ctx.replyWithPhoto(storedPhoto, { caption: cardCaption, parse_mode: "Markdown" });
-    } else if (card.imageUrl) {
-      await ctx.replyWithPhoto(card.imageUrl, { caption: cardCaption, parse_mode: "Markdown" });
-    } else {
+    const photoMessage = await sendCardPhoto(ctx, card, {
+      caption: cardCaption,
+      parse_mode: "Markdown"
+    });
+    if (!photoMessage) {
       await ctx.reply(cardCaption, { parse_mode: "Markdown" });
     }
     await checkAchievements(ctx, collection, card);
