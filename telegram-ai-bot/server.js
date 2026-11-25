@@ -401,7 +401,7 @@ bot.callbackQuery(/^admin:(stats|catalog|system|internet|blockhelp)$/, async (ct
       `📊 Статистика NCARD\nИгроков: ${stats.users}\nВыдано карточек: ${stats.cards}\nСуммарный баланс: ${money(stats.balance)}\nКарточек в каталоге: ${CARDS.length}\nХранилище: ${store.persistent ? "PostgreSQL" : "временная память"}`
     );
   } else if (action === "catalog") {
-    await ctx.reply(`📚 В каталоге сейчас ${CARDS.length} моделей. Полный список из 110 и проверенные официальные изображения ещё не добавлены.`);
+    await ctx.reply(`📚 В каталоге ${CARDS.length} моделей. Официальные фото точных моделей ещё не подключены; для них нужны реальные фото или рендеры производителя.`);
   } else if (action === "system") {
     const cpus = os.cpus();
     const total = os.totalmem();
