@@ -83,6 +83,13 @@ if (flattened.length !== 110) {
 
 let rarityIndex = 0;
 let rarityEnd = RARITY_COUNTS[0];
+const OFFICIAL_IMAGES = {
+  "iphone-13": "https://www.apple.com/newsroom/images/product/iphone/standard/Apple_iphone13_hero_09142021_inline.jpg.large.jpg",
+  "galaxy-s20": "https://api.samsungmobilepress.com/file/CB6814F3B827117DE81CB4217CEF4B0CE06A8258F8816B8380620A18A0260E65BF2BAB5D5B851997D3B3093C0E80E8D86B68C701EDFCA26E05788F06629273C944324155B9E0076E334284371AE817D0E2FBA60F2C7094F174FBF242B24BDA027206F9E6582D29260A53E290575176EFCA8A57648E7D28F707EE460C2C4FE15EF534EDA13D1B17557833ABB78B0D7993",
+  "xiaomi-14": "https://i02.appmifile.com/mi-com-product/fly-birds/xiaomi-14/PC/headAss2_img.jpeg",
+  "oneplus-9-pro": "https://image01.oneplus.net/shop/202104/27/1-M00-24-8B-rB8bwmCICVmAN0CwAAVb_9VyE6w579.png"
+};
+
 const cards = flattened.map((model, index) => {
   while (index >= rarityEnd && rarityIndex < RARITY_COUNTS.length - 1) {
     rarityIndex += 1;
@@ -93,7 +100,7 @@ const cards = flattened.map((model, index) => {
     ...model,
     rarity,
     value: RARITY_VALUES[rarity],
-    imageUrl: null
+    imageUrl: OFFICIAL_IMAGES[model.id] || null
   };
 });
 
