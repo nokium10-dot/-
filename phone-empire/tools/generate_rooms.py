@@ -64,7 +64,7 @@ for idx,(floor,wall,trim) in enumerate(palettes):
     # Fine, restrained pixel grain makes each room feel textured rather than flat.
     arr=np.asarray(im).astype(np.int16)
     rng=np.random.default_rng(2000+idx)
-    noise=rng.integers(-3,4,size=(H,W,1),dtype=np.int16)
+    noise=rng.integers(-15,16,size=(H,W,1),dtype=np.int16)
     arr=np.clip(arr+noise,0,255).astype(np.uint8)
     Image.fromarray(arr).save(f"{OUT}/room{idx}.png",optimize=False,compress_level=1)
 print("Generated 8 original room backgrounds.")
