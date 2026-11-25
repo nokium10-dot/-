@@ -2,6 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- «Живой» виджет: сервис на переднем плане, пока виджет на рабочем столе -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- Видимость пакетов (Android 11+): сервис распознавания речи и синтезатор речи -->
     <queries>
@@ -17,6 +21,7 @@
     </queries>
 
     <application
+        android:name=".PipApp"
         android:allowBackup="false"
         android:hardwareAccelerated="true"
         android:icon="@mipmap/ic_launcher"
@@ -36,7 +41,17 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- Вызов помощника (жест, долгое нажатие «Домой» / питания) -->
+        </activity>
+
+        <!-- Помощник поверх любого приложения: выезжает снизу и слушает (вызов помощника, кнопка «Голос» в виджете) -->
+        <activity
+            android:name=".PipOverlayActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:taskAffinity=""
+            android:theme="@style/PipOverlayTheme"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|uiMode|density|fontScale|layoutDirection">
             <intent-filter>
                 <action android:name="android.intent.action.ASSIST" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -57,6 +72,32 @@
             android:exported="true"
             android:excludeFromRecents="true"
             android:theme="@android:style/Theme.NoDisplay" />
+
+        <!-- Виджет 3×3 с живым Пипом -->
+        <receiver
+            android:name=".PipWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/pip_widget_info" />
+        </receiver>
+
+        <service
+            android:name=".PipWidgetService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="live_widget_render" />
+        </service>
 
         <!-- Эти три компонента делают Пипа доступным в «Цифровой помощник» в настройках телефона -->
         <service
