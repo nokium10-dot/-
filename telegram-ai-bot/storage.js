@@ -14,7 +14,8 @@ const memory = {
   users: new Map(),
   cooldowns: new Map(),
   cards: [],
-  groupMembers: new Map()
+  groupMembers: new Map(),
+  nextCopyId: 1
 };
 
 function memoryUser(id) {
@@ -184,7 +185,7 @@ async function setCooldown(userId, untilMs) {
 async function addCard(userId, card) {
   if (!pool) {
     const u = memoryUser(userId);
-    const entry = { ...card, obtainedAt: Date.now() };
+    const entry = { ...card, copyId: memory.nextCopyId++, obtainedAt: Date.now() };
     memory.cards.push({ userId: Number(userId), ...entry });
     return entry;
   }
@@ -231,6 +232,50 @@ async function getGroupRanking(chatId, limit = 10) {
     id: Number(u.telegram_id), name: u.display_name,
     username: u.username, count: u.card_count
   }));
+}
+
+async function massUpgrade(userId, rarity, nextRarity, nextValue, successChance = 0.5) {
+  if (!pool) {
+    const owned = memory.cards.filter(c => c.userId === Number(userId) && c.rarity === rarity);
+    const results = [];
+    for (const card of owned) {
+      if (Math.random() < successChance) {
+        card.rarity = nextRarity;
+        card.value = nextValue;
+        results.push({ name: card.name, success: true, rarity: nextRarity });
+      } else {
+        const index = memory.cards.indexOf(card);
+        if (index >= 0) memory.cards.splice(index, 1);
+        results.push({ name: card.name, success: false });
+      }
+    }
+    return results;
+  }
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const selected = await client.query(
+      "SELECT id,model FROM ncard_cards WHERE telegram_id=$1 AND rarity=$2 FOR UPDATE",
+      [String(userId), rarity]
+    );
+    const results = [];
+    for (const card of selected.rows) {
+      if (Math.random() < successChance) {
+        await client.query("UPDATE ncard_cards SET rarity=$2,value=$3 WHERE id=$1", [card.id, nextRarity, nextValue]);
+        results.push({ name: card.model, success: true, rarity: nextRarity });
+      } else {
+        await client.query("DELETE FROM ncard_cards WHERE id=$1", [card.id]);
+        results.push({ name: card.model, success: false });
+      }
+    }
+    await client.query("COMMIT");
+    return results;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 async function addBalance(userId, amount) {
@@ -307,6 +352,6 @@ async function close() {
 module.exports = {
   init, upsertUser, getUser, recordGroupMember, getCooldown, claimCooldown,
   setCooldown, addCard, getCollection, getGroupRanking, addBalance,
-  awardAchievement, setProfileField, getStats, logAdminGrant, close,
+  awardAchievement, setProfileField, massUpgrade, getStats, logAdminGrant, close,
   persistent: Boolean(pool)
 };
