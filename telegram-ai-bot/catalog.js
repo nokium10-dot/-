@@ -128,7 +128,17 @@ const OFFICIAL_IMAGES = {
   "iphone-16-plus": "https://www.apple.com/newsroom/images/2024/09/apple-introduces-iphone-16-and-iphone-16-plus/article/Apple-iPhone-16-hero-240909_inline.jpg.large.jpg",
   "iphone-16-pro": "https://www.apple.com/newsroom/images/2024/09/apple-debuts-iphone-16-pro-and-iphone-16-pro-max/article/Apple-iPhone-16-Pro-hero-240909_inline.jpg.large.jpg",
   "iphone-16-pro-max": "https://www.apple.com/newsroom/images/2024/09/apple-debuts-iphone-16-pro-and-iphone-16-pro-max/article/Apple-iPhone-16-Pro-hero-240909_inline.jpg.large.jpg",
-  "oneplus-10t": "https://oasis.opstatics.com/content/dam/oasis/page/press-photos/10t/green/10T-1.png"
+  "oneplus-10t": "https://oasis.opstatics.com/content/dam/oasis/page/press-photos/10t/green/10T-1.png",
+  "xiaomi-12": "https://i01.appmifile.com/webfile/globalimg/products/responsive//xiaomi-12/hand.png",
+  "xiaomi-12-pro": "https://i01.appmifile.com/webfile/globalimg/products/pc/xiaomi-12-pro/pc-section04-slider01s.png",
+  "xiaomi-12t": "https://i02.appmifile.com/mi-com-product/fly-birds/xiaomi-12t/pc/img01l.jpg",
+  "xiaomi-12t-pro": "https://i02.appmifile.com/mi-com-product/fly-birds/pc/xiaomi-12t-pro/4a1dc545023a8b2bcd959b79f6d20aa2.png",
+  "xiaomi-13": "https://i02.appmifile.com/mi-com-product/fly-birds/xiaomi-13/pc/54d5746eecd5594b8c5f7e8d55e684be.jpg",
+  "xiaomi-13-pro": "https://i02.appmifile.com/mi-com-product/fly-birds/pc/xiaomi-13-pro/d6cbfd30906b26fa819309d56c6dad2a.jpg",
+  "xiaomi-13-ultra": "https://i02.appmifile.com/mi-com-product/fly-birds/xiaomi-13-ultra/pc/4bc309b95c7ea99ad67e0d86954778e1.jpg",
+  "xiaomi-13t": "https://i02.appmifile.com/mi-com-product/fly-birds/xiaomi-13t-leica/PC/342ce95b8ea6494eb7679c1ebf4ed654.jpg",
+  "xiaomi-13t-pro": "https://i02.appmifile.com/329_operator_sg/14/08/2023/3fcfdc0e83081349795e70056be19e35.png",
+  "xiaomi-14-ultra": "https://i02.appmifile.com/mi-com-product/fly-birds/new-xiaomi-14-ultra/PC/pc-14ultra-header.jpg"
 };
 
 const cards = flattened.map((model, index) => {
