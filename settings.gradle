@@ -16,3 +16,4 @@ rootProject.name = "MatrixWall"
 include ':app'
 include ':pip'
 include ':phonelife'
+include ':phone-empire'
