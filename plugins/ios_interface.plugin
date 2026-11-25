@@ -1,0 +1,148 @@
+from typing import Any, List
+
+from base_plugin import BasePlugin, MethodHook
+from hook_utils import find_class
+from ui.settings import Header, Switch, Selector, Text
+from java import jint
+
+
+__id__ = "ios_interface"
+__name__ = "iOS Interface"
+__description__ = "iOS-inspired Telegram interface colors and appearance."
+__author__ = "pirtech"
+__version__ = "2.0.0"
+__icon__ = "exteraPlugins/1"
+__app_version__ = ">=12.5.1"
+__sdk_version__ = ">=1.4.4.3"
+__category__ = "appearance"
+
+
+LIGHT_COLORS = {
+    "key_windowBackgroundWhite": 0xFFFFFFFF,
+    "key_windowBackgroundGray": 0xFFF2F2F7,
+    "key_actionBarDefault": 0xFFF9F9FB,
+    "key_actionBarDefaultTitle": 0xFF111111,
+    "key_actionBarDefaultIcon": 0xFF007AFF,
+    "key_windowBackgroundWhiteBlueText": 0xFF007AFF,
+    "key_windowBackgroundWhiteBlueIcon": 0xFF007AFF,
+    "key_divider": 0xFFE5E5EA,
+    "key_chat_outBubble": 0xFF007AFF,
+    "key_chat_inBubble": 0xFFE9E9EB,
+    "key_chat_messageTextOut": 0xFFFFFFFF,
+    "key_chat_messageTextIn": 0xFF111111,
+    "key_switchTrackChecked": 0xFF34C759,
+    "key_checkbox": 0xFF007AFF,
+}
+
+DARK_COLORS = {
+    "key_windowBackgroundWhite": 0xFF1C1C1E,
+    "key_windowBackgroundGray": 0xFF000000,
+    "key_actionBarDefault": 0xFF1C1C1E,
+    "key_actionBarDefaultTitle": 0xFFFFFFFF,
+    "key_actionBarDefaultIcon": 0xFF0A84FF,
+    "key_windowBackgroundWhiteBlueText": 0xFF0A84FF,
+    "key_windowBackgroundWhiteBlueIcon": 0xFF0A84FF,
+    "key_divider": 0xFF38383A,
+    "key_chat_outBubble": 0xFF0A84FF,
+    "key_chat_inBubble": 0xFF38383A,
+    "key_chat_messageTextOut": 0xFFFFFFFF,
+    "key_chat_messageTextIn": 0xFFFFFFFF,
+    "key_switchTrackChecked": 0xFF30D158,
+    "key_checkbox": 0xFF0A84FF,
+}
+
+
+class IOSColorHook(MethodHook):
+    def __init__(self, plugin):
+        self.plugin = plugin
+
+    def after_hooked_method(self, param):
+        try:
+            if not self.plugin.get_setting("enabled", True):
+                return
+
+            palette = int(self.plugin.get_setting("palette", 0))
+            colors = DARK_COLORS if palette == 1 else LIGHT_COLORS
+            key = int(param.args[0])
+
+            for name, color in colors.items():
+                if self.plugin.key_names.get(name) != key:
+                    continue
+                if name.startswith("key_chat_") and not self.plugin.get_setting("recolor_bubbles", True):
+                    return
+                if name.startswith("key_actionBar") and not self.plugin.get_setting("tint_top_bar", True):
+                    return
+                param.setResult(int(color))
+                return
+        except Exception as exc:
+            self.plugin.logger.warning("iOS Interface color hook skipped: %s" % exc)
+
+
+class IOSInterfacePlugin(BasePlugin):
+    def on_plugin_load(self):
+        self.theme_class = None
+        self.key_names = {}
+        self._color_hook = None
+
+        try:
+            self.theme_class = find_class("org.telegram.ui.ActionBar.Theme")
+            if self.theme_class is None:
+                self.logger.warning("Telegram Theme class was not found.")
+                return
+
+            for name in set(LIGHT_COLORS) | set(DARK_COLORS):
+                try:
+                    self.key_names[name] = int(getattr(self.theme_class, name))
+                except Exception:
+                    continue
+
+            get_color = self.theme_class.getDeclaredMethod("getColor", jint)
+            get_color.setAccessible(True)
+            self._color_hook = self.hook_method(get_color, IOSColorHook(self), priority=50)
+            self.logger.info("iOS Interface 2.0.0 color palette hook loaded.")
+        except Exception as exc:
+            self.logger.error("Could not initialize iOS Interface: %s" % exc)
+
+    def create_settings(self) -> List[Any]:
+        return [
+            Header(text="iOS Interface"),
+            Switch(
+                key="enabled",
+                text="Включить оформление",
+                default=True,
+                subtext="Включает цветовую палитру в стиле iOS.",
+                icon="msg_theme",
+            ),
+            Selector(
+                key="palette",
+                text="Цветовая тема",
+                default=0,
+                items=["iOS Light", "iOS Dark"],
+                icon="msg_palette",
+            ),
+            Header(text="Элементы интерфейса"),
+            Switch(
+                key="recolor_bubbles",
+                text="Оформление облаков сообщений",
+                default=True,
+                subtext="Синие исходящие и светло-серые входящие сообщения.",
+                icon="msg_bubble",
+            ),
+            Switch(
+                key="tint_top_bar",
+                text="Оформление верхней панели",
+                default=True,
+                subtext="Цвета заголовка и значков в стиле iOS.",
+                icon="msg_gallery",
+            ),
+            Header(text="О плагине"),
+            Text(
+                text="iOS Interface · pirtech · 2.0.0",
+                subtext=(
+                    "Изменяет доступные цвета Telegram. Скругления, системный "
+                    "шрифт, компоновка экранов, анимации и поле ввода зависят "
+                    "от интерфейса и API конкретной сборки AyuGram."
+                ),
+                icon="msg_info",
+            ),
+        ]
