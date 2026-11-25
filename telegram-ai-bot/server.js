@@ -192,7 +192,7 @@ bot.command("start", async (ctx) => {
   );
 });
 
-bot.command("ncard", async (ctx) => {
+async function giveCard(ctx) {
   const now = Date.now();
   const claim = await store.claimCooldown(ctx.from.id, now, CARD_COOLDOWN_MS);
   if (!claim.ok) {
@@ -225,7 +225,9 @@ bot.command("ncard", async (ctx) => {
   } catch (error) {
     throw error;
   }
-});
+}
+bot.command("ncard", giveCard);
+bot.hears(/^нкарточка$/i, giveCard);
 
 bot.command(["nakk", "накк"], async (ctx) => {
   await sendProfile(ctx, ctx.from.id, ctx.chat.type === "private" ? null : ctx.chat.id);
@@ -564,6 +566,16 @@ async function start() {
     try {
       await bot.init();
       console.log(`NCARD bot initialized: @${bot.botInfo.username}`);
+      await bot.api.setMyCommands([
+        { command: "ncard", description: "Получить карточку (кулдаун 8 минут)" },
+        { command: "nakk", description: "Мой профиль" },
+        { command: "ncollection", description: "Моя коллекция" },
+        { command: "nachievements", description: "Достижения" },
+        { command: "nallup", description: "Улучшить карточки" },
+        { command: "ntop", description: "Рейтинг группы" },
+        { command: "nsettings", description: "Настройки профиля" }
+      ]);
+      console.log("Telegram command menu configured.");
       await bot.api.setWebhook(`${publicUrl}/telegram/${WEBHOOK_SECRET}`, {
         secret_token: WEBHOOK_SECRET,
         allowed_updates: ["message", "callback_query"]
