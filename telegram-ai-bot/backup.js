@@ -57,7 +57,9 @@ async function main() {
     "ncard_cards",
     "ncard_cooldowns",
     "ncard_group_members",
-    "ncard_admin_log"
+    "ncard_admin_log",
+    "ncard_user_blocks",
+    "ncard_card_assets"
   ];
   const client = await pool.connect();
   try {
