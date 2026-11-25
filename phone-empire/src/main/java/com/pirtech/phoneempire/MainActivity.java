@@ -5,158 +5,124 @@ import android.os.Bundle;
 import android.graphics.*;
 import android.view.*;
 import android.content.*;
+import android.media.*;
 import android.speech.tts.TextToSpeech;
-import android.media.AudioAttributes;
-import android.media.AudioFormat;
-import android.media.AudioTrack;
-import android.os.SystemClock;
 import java.util.*;
 
 public class MainActivity extends Activity {
-    private GameView game;
+    private Adventure game;
     private TextToSpeech tts;
-    private Music music;
-    private boolean voiceReady=false;
-    @Override public void onCreate(Bundle b) {
+    @Override public void onCreate(Bundle b){
         super.onCreate(b);
-        getWindow().setStatusBarColor(Color.rgb(10,16,29));
-        getWindow().setNavigationBarColor(Color.rgb(10,16,29));
-        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
-        tts=new TextToSpeech(this, status -> {
-            if(status==TextToSpeech.SUCCESS) {
-                int r=tts.setLanguage(new Locale("ru","RU"));
-                voiceReady=r!=TextToSpeech.LANG_MISSING_DATA && r!=TextToSpeech.LANG_NOT_SUPPORTED;
-            }
-        });
-        game=new GameView(this);
-        setContentView(game);
-        music=new Music();
-        music.start();
+        getWindow().setStatusBarColor(Color.rgb(8,10,18));
+        getWindow().setNavigationBarColor(Color.rgb(8,10,18));
+        tts=new TextToSpeech(this,s->{if(s==TextToSpeech.SUCCESS)tts.setLanguage(new Locale("ru","RU"));});
+        game=new Adventure(this); setContentView(game);
     }
-    @Override protected void onPause(){super.onPause(); if(game!=null)game.save(); if(music!=null)music.pause();}
-    @Override protected void onResume(){super.onResume(); if(music!=null)music.resume();}
-    @Override protected void onDestroy(){if(music!=null)music.stop();if(tts!=null){tts.stop();tts.shutdown();}super.onDestroy();}
-    private void speak(String s){if(voiceReady && tts!=null)tts.speak(s,TextToSpeech.QUEUE_FLUSH,null,"story");}
+    @Override protected void onPause(){super.onPause();if(game!=null)game.save();}
+    @Override protected void onDestroy(){if(tts!=null)tts.shutdown();super.onDestroy();}
 
-    private class Music {
-        volatile boolean running=true, playing=true;
-        Thread thread; AudioTrack track;
-        void start(){thread=new Thread(()->{
-            int rate=22050, n=rate*4;
-            short[] loop=new short[n];
-            double[] notes={261.63,329.63,392.00,329.63,220.00,293.66,349.23,293.66};
-            for(int i=0;i<n;i++){
-                double t=i/(double)rate, beat=(t%2.0)/2.0;
-                double f=notes[(int)(t/0.5)%notes.length];
-                double env=Math.min(1,beat*12)*Math.min(1,(1-beat)*5);
-                double v=(Math.sin(2*Math.PI*f*t)*0.12+Math.sin(2*Math.PI*f*0.5*t)*0.045+Math.sin(2*Math.PI*65*t)*0.025)*env;
-                loop[i]=(short)(Math.max(-1,Math.min(1,v))*32767);
-            }
-            try{
-                track=new AudioTrack.Builder().setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_GAME).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build()).setAudioFormat(new AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_16BIT).setSampleRate(rate).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build()).setBufferSizeInBytes(n*2).setTransferMode(AudioTrack.MODE_STREAM).build();
-                track.play();
-                while(running){if(playing){track.write(loop,0,loop.length);}else SystemClock.sleep(100);}
-            }catch(Exception ignored){} finally{if(track!=null){try{track.stop();track.release();}catch(Exception ignored){}}}
-        },"PhoneEmpireMusic");thread.setDaemon(true);thread.start();}
-        void pause(){playing=false;} void resume(){playing=true;} void stop(){running=false;playing=false;if(track!=null)try{track.pause();}catch(Exception ignored){}}
-    }
-
-    private class GameView extends View {
-        Canvas c; Paint p=new Paint(3); float sx,sy; int tab=0; long last=0;
-        int bg=Color.rgb(10,16,29), panel=Color.rgb(22,31,49), panel2=Color.rgb(30,43,64), white=Color.rgb(240,245,255), muted=Color.rgb(151,169,193), cyan=Color.rgb(66,211,219), green=Color.rgb(88,214,151), gold=Color.rgb(255,194,92), red=Color.rgb(255,112,119);
-        long money=150000; int day=1, reputation=5, phones=0, sold=0, staff=0, shopLevel=1, research=0, marketing=0;
-        int parts=0, story=0, xp=0; boolean musicOn=true, voiceOn=true;
-        String company="NOVA MOBILE", model="NOVA One"; String notice="Добро пожаловать в собственную компанию!";
-        String[] tabs={"БИЗНЕС","РАЗРАБОТКА","ЗАДАНИЯ","КОМАНДА"};
-        String[] chapters={
-            "Глава 1. Маленькое начало. Вы открыли мастерскую в старом торговом центре. Ваша цель — доказать, что даже маленькая команда может создать отличный телефон.",
-            "Глава 2. Первый тираж. Поставщик готов продать вам комплектующие. Соберите первую партию и найдите своих покупателей.",
-            "Глава 3. Имя на коробке. Покупатели начинают узнавать NOVA. Улучшайте качество и не забывайте о репутации.",
-            "Глава 4. Большая камера. Инженеры предлагают новую систему камер. Вложитесь в исследования, чтобы обойти конкурентов.",
-            "Глава 5. Свой цех. Спрос растёт. Пора расширить производство и нанять первых сотрудников.",
-            "Глава 6. На витрине. Откройте фирменную точку продаж и запустите рекламную кампанию.",
-            "Глава 7. Сложный выбор. Конкурент снижает цены. Решите, будете ли вы бороться стоимостью или качеством.",
-            "Глава 8. Новый процессор. Разработка собственного чипа потребует времени и серьёзных вложений.",
-            "Глава 9. За пределами города. Выходите в новые регионы и увеличивайте производство.",
-            "Глава 10. Флагман. Создайте телефон, который станет лицом компании.",
-            "Глава 11. Большая лига. Удерживайте качество, обучайте команду и развивайте сеть магазинов.",
-            "Глава 12. Империя. Ваша компания стала заметным игроком рынка. Но впереди ещё много технологий."
+    private class Adventure extends View {
+        Canvas c; Paint p=new Paint(); Bitmap[] rooms=new Bitmap[8];
+        float px=480,py=510,joyX=0,joyY=0,scaleX,scaleY;
+        int room=0,chapter=0,dialogue=0,heart=3,coins=0;
+        boolean talking=false,showHelp=true;
+        String speaker="",line="";
+        long last=System.nanoTime();
+        final int ink=Color.rgb(10,10,18),paper=Color.WHITE,red=Color.rgb(255,65,85),gold=Color.rgb(255,211,89);
+        final String[][] talks={
+            {"СТАРЫЙ СМОТРИТЕЛЬ","Ты наконец проснулся. Это место давно ждёт гостя.","Восемь комнат соединены старыми переходами.","Найди три осколка памяти. Тогда откроется северная дверь."},
+            {"МИРА","Не бойся темноты. Она просто не умеет говорить.","Я потеряла ключ в мастерской. Поможешь найти?","Спасибо. Возьми эту монету."},
+            {"МЕХАНИК","Этот механизм питается воспоминаниями.","Нажми на кнопку рядом с панелью, когда найдёшь осколок."},
+            {"ЛЕСНОЙ ДУХ","Здесь каждый звук оставляет след.","Ты можешь идти дальше. Только не забывай слушать."},
+            {"АРХИВАРИУС","В старых книгах написано: выход всегда там, где ты решишь его искать.","Ты собрал достаточно воспоминаний."},
+            {"СТРАННИК","Я видел свет за восточной дверью.","Не все встречи случайны."},
+            {"ХРАНИТЕЛЬ","Ты прошёл длинный путь.","Комнаты меняются, но выбор остаётся за тобой."},
+            {"ГОЛОС","Спасибо, что дошёл сюда.","Это только начало новой истории."}
         };
-        String[] tasks={"Продайте первые 3 телефона","Соберите партию из 5 смартфонов","Достигните репутации 15","Исследуйте улучшенную камеру","Наймите 2 сотрудников","Улучшите мастерскую до 2 уровня","Продайте 20 смартфонов","Изучите новый процессор","Накопите 500 000 ₽","Создайте флагманскую модель","Нанимайте и расширяйте бизнес","Станьте лидером рынка"};
-        GameView(Context ctx){super(ctx);setLayerType(View.LAYER_TYPE_SOFTWARE,null);load();}
-        void load(){android.content.SharedPreferences s=getSharedPreferences("empire",0);money=s.getLong("money",150000);day=s.getInt("day",1);reputation=s.getInt("rep",5);phones=s.getInt("phones",0);sold=s.getInt("sold",0);staff=s.getInt("staff",0);shopLevel=s.getInt("level",1);research=s.getInt("research",0);marketing=s.getInt("marketing",0);parts=s.getInt("parts",0);story=s.getInt("story",0);xp=s.getInt("xp",0);}
-        void save(){getSharedPreferences("empire",0).edit().putLong("money",money).putInt("day",day).putInt("rep",reputation).putInt("phones",phones).putInt("sold",sold).putInt("staff",staff).putInt("level",shopLevel).putInt("research",research).putInt("marketing",marketing).putInt("parts",parts).putInt("story",story).putInt("xp",xp).apply();}
-        void txt(String s,float x,float y,float size,int color){p.setColor(color);p.setTextSize(size);p.setTypeface(Typeface.create("sans-serif",Typeface.NORMAL));c.drawText(s,x,y,p);}
-        void bold(String s,float x,float y,float size,int color){p.setColor(color);p.setTextSize(size);p.setTypeface(Typeface.create("sans-serif",Typeface.BOLD));c.drawText(s,x,y,p);}
-        void rect(float x,float y,float w,float h,float r,int color){p.setColor(color);c.drawRoundRect(x,y,x+w,y+h,r,r,p);}
-        void line(float x,float y,float x2,float y2,int color,float sw){p.setColor(color);p.setStrokeWidth(sw);c.drawLine(x,y,x2,y2,p);}
-        void card(float x,float y,float w,float h){rect(x,y,w,h,18,panel);p.setColor(Color.argb(24,255,255,255));c.drawRoundRect(x,y,x+w,y+h,18,18,p);}
-        void button(String label,float x,float y,float w,float h,int color){rect(x,y,w,h,13,color);p.setColor(Color.WHITE);p.setTextSize(13);p.setTypeface(Typeface.DEFAULT_BOLD);float tw=p.measureText(label);c.drawText(label,x+(w-tw)/2,y+h/2+5,p);}
-        @Override protected void onDraw(Canvas canvas){super.onDraw(canvas);c=canvas;sx=getWidth()/390f;sy=getHeight()/844f;c.save();c.scale(sx,sy);c.drawColor(bg);
-            bold("PHONE EMPIRE",20,34,19,white);txt("NOVA MOBILE  •  ДЕНЬ "+day,20,56,11,muted);
-            rect(18,70,354,72,16,panel);txt("КАПИТАЛ",32,91,10,muted);bold(String.format(Locale.US,"%,d ₽",money),32,121,23,green);txt("РЕПУТАЦИЯ",220,91,10,muted);bold(reputation+"/100",220,121,21,cyan);
-            if(tab==0)drawBusiness();else if(tab==1)drawResearch();else if(tab==2)drawTasks();else drawTeam();
-            float y=780;rect(12,y,366,52,18,panel2);
-            for(int i=0;i<4;i++){float x=17+i*91; if(tab==i)rect(x,y+5,86,42,12,Color.rgb(47,78,105));txt(tabs[i],x+10,y+31,10,tab==i?cyan:muted);}
-            if(notice.length()>0){rect(18,728,354,38,12,Color.rgb(33,52,70));txt(clip(notice,46),28,752,11,white);}
-            c.restore();
+        final String[] names={"ЗАЛ ПРОБУЖДЕНИЯ","СТАРАЯ МАСТЕРСКАЯ","ЗАТОНУВШАЯ БИБЛИОТЕКА","ТИХИЙ ЛЕС","ЗАЛ ПАМЯТИ","ЗАБРОШЕННАЯ СТАНЦИЯ","СЕВЕРНЫЙ КОРИДОР","ПОСЛЕДНЯЯ КОМНАТА"};
+        Adventure(Context ctx){super(ctx);setLayerType(View.LAYER_TYPE_SOFTWARE,null);load();}
+        void load(){android.content.SharedPreferences s=getSharedPreferences("soulstory",0);room=s.getInt("room",0);px=s.getFloat("px",480);py=s.getFloat("py",510);chapter=s.getInt("chapter",0);coins=s.getInt("coins",0);}
+        void save(){getSharedPreferences("soulstory",0).edit().putInt("room",room).putFloat("px",px).putFloat("py",py).putInt("chapter",chapter).putInt("coins",coins).apply();}
+        int col(String v){return Color.parseColor(v);}
+        void fill(int color){p.setColor(color);p.setStyle(Paint.Style.FILL);}
+        void box(float x,float y,float w,float h,int color){fill(color);c.drawRect(x,y,x+w,y+h,p);}
+        void stroke(float x,float y,float w,float h,int color,float sw){p.setColor(color);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(sw);c.drawRect(x,y,x+w,y+h,p);p.setStyle(Paint.Style.FILL);}
+        void text(String s,float x,float y,int size,int color){fill(color);p.setTypeface(Typeface.create("monospace",Typeface.BOLD));p.setTextSize(size);c.drawText(s,x,y,p);}
+        void center(String s,float x,float y,int size,int color){p.setTypeface(Typeface.create("monospace",Typeface.BOLD));p.setTextSize(size);text(s,x-p.measureText(s)/2,y,size,color);}
+        @Override protected void onDraw(Canvas canvas){super.onDraw(canvas);c=canvas;scaleX=getWidth()/960f;scaleY=getHeight()/540f;c.save();c.scale(scaleX,scaleY);
+            long now=System.nanoTime();float dt=Math.min(.04f,(now-last)/1e9f);last=now;
+            if(!talking){px+=joyX*180*dt;py+=joyY*180*dt;px=Math.max(55,Math.min(905,px));py=Math.max(90,Math.min(500,py));}
+            drawRoom();drawObjects();drawCharacter(px,py,1.0f,Color.rgb(235,221,194),false);
+            hud();if(talking)drawDialogue();if(showHelp&&!talking)drawHelp();
+            c.restore();postInvalidateDelayed(16);
         }
-        String clip(String s,int n){return s.length()>n?s.substring(0,n-1)+"…":s;}
-        void drawBusiness(){
-            bold("ВАША КОМПАНИЯ",20,174,16,white);
-            card(18,190,354,145);drawPhone(42,207,72);bold(model,132,224,17,white);txt("Ваш первый смартфон",132,246,11,muted);txt("Собрано: "+phones+"    Продано: "+sold,132,268,11,cyan);txt("Уровень мастерской: "+shopLevel,132,290,11,muted);
-            button("СОБРАТЬ 1  •  18 000 ₽",30,302,330,27,Color.rgb(34,139,125));
-            bold("УПРАВЛЕНИЕ",20,371,15,white);
-            card(18,386,170,91);txt("Комплектующие",30,409,11,muted);bold(parts+" комплектов",30,435,19,white);button("Купить 5 • 45 000 ₽",28,443,150,25,Color.rgb(53,92,130));
-            card(202,386,170,91);txt("Продажи",214,409,11,muted);bold("+"+String.format(Locale.US,"%,d",salePrice())+" ₽",214,435,19,green);button("Продать 1 телефон",212,443,150,25,Color.rgb(34,139,125));
-            card(18,490,354,94);txt("СЛЕДУЮЩИЙ ШАГ",32,514,10,gold);bold(tasks[Math.min(story,11)],32,540,15,white);txt("Глава "+(story+1)+" из 12",32,560,11,muted);
-            button("Завершить рабочий день",20,603,350,43,Color.rgb(55,89,132));
+        void drawRoom(){
+            if(rooms[room]==null)try{rooms[room]=BitmapFactory.decodeStream(getAssets().open("rooms/room"+room+".png"));}catch(Exception ignored){}
+            if(rooms[room]!=null){p.setFilterBitmap(false);c.drawBitmap(rooms[room],null,new Rect(0,0,960,540),p);}
+            else {box(0,0,960,540,Color.rgb(22,25,37));box(30,55,900,440,Color.rgb(44,48,62));}
+            stroke(28,50,904,450,Color.rgb(150,142,128),5);
+            // Doors: each room has a clear, walkable exit.
+            box(430,48,100,15,Color.rgb(16,17,26));stroke(430,48,100,40,gold,3);
+            box(25,245,15,85,Color.rgb(16,17,26));box(920,245,15,85,Color.rgb(16,17,26));
+            text(names[room],34,34,18,Color.WHITE);
         }
-        void drawPhone(float x,float y,float size){rect(x,y,size*.57f,size,13,Color.rgb(5,9,16));rect(x+3,y+4,size*.57f-6,size-8,10,Color.rgb(65,154,183));rect(x+8,y+13,size*.57f-16,size*.55f,5,Color.rgb(29,61,94));rect(x+size*.2f,y+size*.83f,size*.17f,3,3,Color.WHITE);}
-        int salePrice(){return 30000+research*2500+shopLevel*1000;}
-        void drawResearch(){
-            bold("ЛАБОРАТОРИЯ",20,174,17,white);txt("Инвестируйте в технологии и улучшайте устройства.",20,196,11,muted);
-            String[] names={"Камера Pro","OLED-дисплей","Быстрый процессор","Батарея высокой ёмкости","Автоматизация цеха"};
-            String[] desc={"Больше деталей на снимках","Яркие цвета и контраст","Быстрее приложения и игры","Больше времени без зарядки","Снижение расходов на сборку"};
-            int[] costs={45000,65000,90000,55000,120000};
-            for(int i=0;i<5;i++){int y=218+i*91;card(18,y,354,79);bold(names[i],31,y+25,14,white);txt(desc[i],31,y+45,10,muted);button(research>i?"ИЗУЧЕНО":String.format(Locale.US,"%,d ₽",costs[i]),245,y+19,112,38,research>i?Color.rgb(47,112,91):Color.rgb(53,92,130));}
-            card(18,690,354,36);txt("Уровень технологий: "+research+" / 5",30,713,12,cyan);
-        }
-        void drawTasks(){
-            bold("ИСТОРИЯ КОМПАНИИ",20,174,17,white);txt("Каждый шаг приближает NOVA к вершине.",20,196,11,muted);
-            card(18,213,354,180);txt("ТЕКУЩАЯ ГЛАВА",32,239,10,gold);bold("Глава "+(story+1),32,267,19,white);wrap(chapters[Math.min(story,11)],32,292,320,14,11,muted);
-            button("ОЗВУЧИТЬ ИСТОРИЮ",30,355,330,27,Color.rgb(53,92,130));
-            bold("ЦЕЛИ КАМПАНИИ",20,426,15,white);
-            for(int i=0;i<6;i++){int k=Math.min(story+i,11), y=444+i*45;card(18,y,354,38);rect(29,y+11,16,16,5,k<story?green:panel2);txt((k+1)+". "+tasks[k],56,y+25,11,k<story?green:white);}
-        }
-        void drawTeam(){
-            bold("КОМАНДА И РОСТ",20,174,17,white);txt("Люди, реклама и развитие мастерской.",20,196,11,muted);
-            card(18,215,354,88);txt("СОТРУДНИКИ",32,240,10,muted);bold(""+staff+" человек",32,273,23,white);button("Нанять • 35 000 ₽",211,241,145,40,Color.rgb(53,92,130));
-            card(18,319,354,88);txt("МАСТЕРСКАЯ",32,344,10,muted);bold("Уровень "+shopLevel,32,377,23,white);button("Улучшить • "+(shopLevel*80000)+" ₽",211,345,145,40,Color.rgb(53,92,130));
-            card(18,423,354,88);txt("РЕКЛАМНАЯ КАМПАНИЯ",32,448,10,muted);bold("Уровень "+marketing,32,481,23,white);button("Запустить • 25 000 ₽",211,449,145,40,Color.rgb(53,92,130));
-            card(18,527,354,95);txt("СТАТИСТИКА",32,552,10,muted);txt("Продано устройств: "+sold,32,578,12,white);txt("Опыт компании: "+xp+"    Репутация: "+reputation,32,600,11,cyan);
-            button(musicOn?"МУЗЫКА: ВКЛ":"МУЗЫКА: ВЫКЛ",20,646,168,38,Color.rgb(53,92,130));button(voiceOn?"ОЗВУЧКА: ВКЛ":"ОЗВУЧКА: ВЫКЛ",202,646,168,38,Color.rgb(53,92,130));
-            button("СОХРАНИТЬ ИГРУ",20,694,350,31,Color.rgb(34,139,125));
-        }
-        void wrap(String text,float x,float y,float width,float lineH,float size,int color){p.setTextSize(size);String[] words=text.split(" ");String line="";int rows=0;for(String w:words){String t=line.isEmpty()?w:line+" "+w;if(p.measureText(t)>width){txt(line,x,y+rows*lineH,size,color);line=w;rows++;}else line=t;}if(!line.isEmpty())txt(line,x,y+rows*lineH,size,color);}
-        void msg(String s){notice=s;invalidate();}
-        void buyParts(){if(money>=45000){money-=45000;parts+=5;msg("Закуплено 5 комплектов комплектующих.");}else msg("Недостаточно средств для закупки.");}
-        void assemble(){if(parts<1){msg("Сначала купите комплектующие.");return;}if(money<18000){msg("Не хватает денег на сборку.");return;}parts--;money-=18000;phones++;xp+=10;msg("Смартфон собран. Проверьте качество и цену!");advance();}
-        void sell(){if(phones<1){msg("На складе пока нет готовых телефонов.");return;}phones--;sold++;money+=salePrice();reputation=Math.min(100,reputation+1+(marketing>0?1:0));xp+=15;msg("Продажа завершена! Покупатель доволен.");advance();}
-        void advance(){if(story==0&&sold>=3)story=1;if(story==1&&phones+sold>=5)story=2;if(story==2&&reputation>=15)story=3;if(story==3&&research>=1)story=4;if(story==4&&staff>=2)story=5;if(story==5&&shopLevel>=2)story=6;if(story==6&&sold>=20)story=7;if(story==7&&research>=3)story=8;if(story==8&&money>=500000)story=9;if(story==9&&research>=5)story=10;if(story==10&&staff>=5)story=11;}
-        void endDay(){day++;long upkeep=staff*2500L+shopLevel*1800L;money=Math.max(0,money-upkeep);long bonus=phones*1200L;money+=bonus;reputation=Math.max(0,Math.min(100,reputation+(money>0?1:0)));advance();save();msg("День "+day+". Расходы: "+upkeep+" ₽. Доход со склада: "+bonus+" ₽.");}
-        @Override public boolean onTouchEvent(android.view.MotionEvent e){float x=e.getX()/sx,y=e.getY()/sy;if(e.getAction()!=MotionEvent.ACTION_UP)return true;
-            if(y>780){tab=Math.min(3,Math.max(0,(int)((x-17)/91)));invalidate();return true;}
-            if(tab==0){if(y>=302&&y<338)assemble();else if(y>=443&&y<478){if(x<195)buyParts();else sell();}else if(y>=603&&y<650)endDay();}
-            else if(tab==1){int idx=(int)((y-218)/91);int[] costs={45000,65000,90000,55000,120000};if(idx>=0&&idx<5&&y>=218){if(research>idx)msg("Эта технология уже изучена.");else if(money>=costs[idx]){money-=costs[idx];research++;xp+=35;msg("Исследование завершено: "+new String[]{"Камера Pro","OLED-дисплей","Быстрый процессор","Новая батарея","Автоматизация"}[idx]);advance();}else msg("Недостаточно средств для исследования.");}}
-            else if(tab==2){if(y>=355&&y<393){if(voiceOn)speak(chapters[Math.min(story,11)]);else msg("Озвучка отключена.");}}
-            else if(tab==3){if(y>=241&&y<300){if(money>=35000){money-=35000;staff++;msg("Новый сотрудник присоединился к команде.");advance();}else msg("Не хватает денег на зарплату и найм.");}
-                else if(y>=345&&y<407){long cost=shopLevel*80000L;if(money>=cost){money-=cost;shopLevel++;msg("Мастерская улучшена до уровня "+shopLevel+".");advance();}else msg("Не хватает средств на улучшение.");}
-                else if(y>=449&&y<512){if(money>=25000){money-=25000;marketing++;reputation=Math.min(100,reputation+3);msg("Реклама запущена. Репутация растёт.");}else msg("Недостаточно денег на рекламу.");}
-                else if(y>=646&&y<686){if(x<195){musicOn=!musicOn;if(musicOn)music.resume();else music.pause();msg("Настройка музыки изменена.");}else{voiceOn=!voiceOn;msg("Настройка озвучки изменена.");}}
-                else if(y>=694&&y<730){save();msg("Прогресс сохранён.");}
+        void drawObjects(){
+            // Furnishings and landmarks are intentionally chunky pixel shapes.
+            switch(room){
+                case 0: drawBed(180,165);drawLamp(760,150);drawNpc(680,300,0);break;
+                case 1: drawDesk(160,180);drawCrate(690,350);drawNpc(770,260,1);break;
+                case 2: drawBooks(170,170);drawBooks(730,170);drawNpc(480,260,2);break;
+                case 3: drawTree(210,170);drawTree(730,175);drawNpc(500,270,3);break;
+                case 4: drawPillar(210,160);drawPillar(730,160);drawNpc(480,270,4);break;
+                case 5: drawDesk(170,180);drawCrate(700,340);drawNpc(480,260,5);break;
+                case 6: drawPillar(220,160);drawPillar(720,160);drawNpc(480,270,6);break;
+                default: drawLamp(220,160);drawLamp(740,160);drawNpc(480,260,7);break;
             }
-            save();invalidate();return true;
+            // Collectible memory shards.
+            if(chapter<3){float[] xs={300,600,480},ys={300,370,160};for(int i=0;i<3;i++)if((chapter&(1<<i))==0)drawShard(xs[i],ys[i]);}
+        }
+        void drawCharacter(float x,float y,float z,int skin,boolean npc){
+            int ix=(int)x,iy=(int)y;
+            box(ix-11,iy-29,22,25,skin);box(ix-15,iy-8,30,22,Color.rgb(76,91,143));
+            box(ix-14,iy+12,10,10,Color.rgb(35,37,52));box(ix+4,iy+12,10,10,Color.rgb(35,37,52));
+            box(ix-7,iy-21,4,4,ink);box(ix+4,iy-21,4,4,ink);
+            box(ix-5,iy-13,10,2,Color.rgb(135,66,76));
+            if(!npc){box(ix-15,iy-33,30,4,Color.rgb(20,20,28));box(ix-14,iy-32,28,2,red);}
+        }
+        void drawNpc(float x,float y,int id){drawCharacter(x,y,1,Color.rgb(214,180,140),true);box(x-15,y-31,30,6,Color.rgb(55+id*12,90,120));}
+        void drawBed(float x,float y){box(x,y,160,85,Color.rgb(98,78,100));box(x+8,y+8,144,25,Color.rgb(211,199,190));box(x+8,y+38,144,39,Color.rgb(89,105,148));}
+        void drawLamp(float x,float y){box(x-5,y,10,100,Color.rgb(100,83,64));box(x-25,y-14,50,18,gold);box(x-40,y+86,80,12,Color.rgb(83,67,55));}
+        void drawDesk(float x,float y){box(x,y,160,55,Color.rgb(110,77,54));box(x+12,y+55,14,60,Color.rgb(73,55,48));box(x+134,y+55,14,60,Color.rgb(73,55,48));}
+        void drawCrate(float x,float y){box(x,y,70,65,Color.rgb(128,88,52));stroke(x,y,70,65,Color.rgb(205,160,91),4);stroke(x+8,y+8,54,49,Color.rgb(205,160,91),3);}
+        void drawBooks(float x,float y){for(int i=0;i<5;i++){box(x,y+i*22,105,17,new int[]{0xffa45c52,0xff64816f,0xff6e719d,0xffc49a55,0xff7c5c83}[i]);}}
+        void drawTree(float x,float y){box(x-8,y,16,95,Color.rgb(91,63,48));box(x-45,y-35,90,55,Color.rgb(47,104,76));box(x-32,y-55,64,35,Color.rgb(62,126,83));}
+        void drawPillar(float x,float y){box(x,y,42,160,Color.rgb(117,119,134));box(x-8,y,58,12,Color.rgb(174,173,179));box(x-8,y+148,58,12,Color.rgb(174,173,179));}
+        void drawShard(float x,float y){fill(gold);Path a=new Path();a.moveTo(x,y-15);a.lineTo(x+12,y);a.lineTo(x,y+17);a.lineTo(x-12,y);a.close();c.drawPath(a,p);stroke(x-5,y-7,10,14,Color.WHITE,2);}
+        void hud(){box(0,0,960,52,0xdd080a12);text("SOULBOUND",28,32,19,Color.WHITE);text(names[room],340,31,16,gold);text("ОСКОЛКИ "+Integer.bitCount(chapter&7)+"/3",760,31,14,Color.WHITE);
+            box(20,468,920,58,0xcc080a12);text("ПЕРЕМЕЩЕНИЕ",38,493,12,Color.LTGRAY);text("ИССЛЕДУЙ КОМНАТУ  •  ПОДОЙДИ К ПЕРСОНАЖУ И НАЖМИ «E»",38,514,13,Color.WHITE);
+        }
+        void drawHelp(){box(270,170,420,105,0xee10121d);stroke(270,170,420,105,gold,3);center("ТЫ ПРОСНУЛСЯ В НЕЗНАКОМОМ МЕСТЕ",480,205,15,Color.WHITE);center("Веди пальцем по левой части экрана,",480,232,14,Color.LTGRAY);center("чтобы ходить. Коснись NPC рядом для диалога.",480,254,13,Color.LTGRAY);}
+        void drawDialogue(){box(30,350,900,150,0xf0080a12);stroke(30,350,900,150,Color.WHITE,4);text(speaker,55,385,19,gold);wrap(line,55,420,830,23,16,Color.WHITE);text("КОСНИСЬ, ЧТОБЫ ПРОДОЛЖИТЬ  ▸",590,480,12,Color.LTGRAY);}
+        void wrap(String s,float x,float y,float width,int step,int size,int color){String cur="";int row=0;for(String word:s.split(" ")){String test=cur.isEmpty()?word:cur+" "+word;p.setTextSize(size);p.setTypeface(Typeface.MONOSPACE);if(p.measureText(test)>width){text(cur,x,y+row++*step,size,color);cur=word;}else cur=test;}text(cur,x,y+row*step,size,color);}
+        void interact(){
+            if(talking){dialogue++;String[] a=talks[room];if(dialogue>=a.length){talking=false;dialogue=0;if(room==1&&coins==0)coins++;invalidate();return;}line=a[dialogue];invalidate();return;}
+            if(showHelp){showHelp=false;invalidate();return;}
+            if(Math.abs(px-480)<105&&Math.abs(py-260)<110 || Math.abs(px-680)<110&&Math.abs(py-300)<100 || Math.abs(px-770)<100&&Math.abs(py-260)<100){
+                talking=true;dialogue=0;speaker=talks[room][0];line=talks[room].length>1?talks[room][1]:"Здесь тихо.";invalidate();return;
+            }
+            float[] xs={300,600,480},ys={300,370,160};for(int i=0;i<3;i++)if((chapter&(1<<i))==0&&Math.hypot(px-xs[i],py-ys[i])<55){chapter|=1<<i;coins+=5;line="Ты нашёл осколок памяти.";speaker="СИСТЕМА";talking=true;dialogue=0;invalidate();return;}
+            if(py<100){room=(room+7)%8;px=480;py=420;save();}
+            else if(px<65){room=(room+7)%8;px=875;save();}
+            else if(px>895){room=(room+1)%8;px=85;save();}
+            else if(py>450){room=(room+1)%8;px=480;py=105;save();}
+            invalidate();
+        }
+        @Override public boolean onTouchEvent(MotionEvent e){
+            float x=e.getX()/scaleX,y=e.getY()/scaleY;
+            if(e.getAction()==MotionEvent.ACTION_DOWN){if(talking){interact();return true;}if(showHelp){showHelp=false;return true;}if(x>700&&y>390){interact();return true;}joyX=(x-180)/130f;joyY=(y-340)/130f;float len=(float)Math.hypot(joyX,joyY);if(len>1){joyX/=len;joyY/=len;}return true;}
+            if(e.getAction()==MotionEvent.ACTION_MOVE){if(x<560){joyX=Math.max(-1,Math.min(1,(x-180)/130f));joyY=Math.max(-1,Math.min(1,(y-340)/130f));}return true;}
+            if(e.getAction()==MotionEvent.ACTION_UP){joyX=joyY=0;if(x>700&&y>390)interact();else if(y<80&&x>850)save();return true;}return true;
         }
     }
 }
