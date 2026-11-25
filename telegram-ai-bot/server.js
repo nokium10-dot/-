@@ -1,5 +1,6 @@
 const express = require("express");
 const { Bot, InlineKeyboard } = require("grammy");
+const os = require("os");
 const store = require("./storage");
 
 for (const name of ["TELEGRAM_BOT_TOKEN", "WEBHOOK_SECRET"]) {
@@ -153,6 +154,12 @@ async function sendProfile(ctx, userId, chatId) {
 bot.use(async (ctx, next) => {
   if (ctx.from) {
     await store.upsertUser(ctx.from);
+    if (!isOwner(ctx) && await store.isBlocked(ctx.from.id)) {
+      if (ctx.chat?.type === "private" && ctx.message) {
+        await ctx.reply("⛔ Доступ к боту ограничен владельцем.");
+      }
+      return;
+    }
     if (ctx.chat && ctx.chat.type !== "private") {
       await store.recordGroupMember(ctx.chat.id, ctx.from.id);
     }
@@ -169,8 +176,9 @@ bot.command("start", async (ctx) => {
     "🏅 /nachievements — достижения\n" +
     "⚒️ /nallup — массовое улучшение карточек\n" +
     "🏆 /ntop — рейтинг этой группы\n" +
-    "⚙️ /nsettings — титулы и фоны профиля"
-  );
+    "⚙️ /nsettings — титулы и фоны профиля",
+    "📨 Поддержка — просто напиши сообщение боту."
+  , { reply_markup: new InlineKeyboard().url("TikTok", "https://www.tiktok.com/@pirozki380") });
 });
 
 bot.command("ncard", async (ctx) => {
@@ -382,12 +390,16 @@ bot.command("nadmin", async (ctx) => {
   if (ctx.chat.type !== "private") return ctx.reply("Открой личный чат с ботом и введи /nadmin.");
   const keyboard = new InlineKeyboard()
     .text("📊 Статистика", "admin:stats")
+    .text("📚 Каталог", "admin:catalog")
     .row()
-    .text("📚 Каталог", "admin:catalog");
+    .text("🖥 Нагрузка сервера", "admin:system")
+    .text("🌐 Интернет", "admin:internet")
+    .row()
+    .text("🚫 Блокировка", "admin:blockhelp");
   await ctx.reply(`🔐 Панель владельца\nВладелец: @${OWNER_USERNAME}\nID: ${OWNER_ID}`, { reply_markup: keyboard });
 });
 
-bot.callbackQuery(/^admin:(stats|catalog)$/, async (ctx) => {
+bot.callbackQuery(/^admin:(stats|catalog|system|internet|blockhelp)$/, async (ctx) => {
   if (!isOwner(ctx) || ctx.chat?.type !== "private") {
     await ctx.answerCallbackQuery({ text: "Доступ запрещён", show_alert: true });
     return;
@@ -399,8 +411,64 @@ bot.callbackQuery(/^admin:(stats|catalog)$/, async (ctx) => {
     await ctx.reply(
       `📊 Статистика NCARD\nИгроков: ${stats.users}\nВыдано карточек: ${stats.cards}\nСуммарный баланс: ${money(stats.balance)}\nКарточек в каталоге: ${CARDS.length}\nХранилище: ${store.persistent ? "PostgreSQL" : "временная память"}`
     );
-  } else {
+  } else if (action === "catalog") {
     await ctx.reply(`📚 В каталоге сейчас ${CARDS.length} моделей. Полный список из 110 и проверенные официальные изображения ещё не добавлены.`);
+  } else if (action === "system") {
+    const cpus = os.cpus();
+    const total = os.totalmem();
+    const free = os.freemem();
+    const load = os.loadavg().map(v => v.toFixed(2)).join(" / ");
+    await ctx.reply(`🖥 Нагрузка хоста\nCPU: ${cpus.length} ядер (${cpus[0]?.model || "неизвестно"})\nLoad average (1/5/15 мин): ${load}\nRAM: ${((total-free)/1024/1024/1024).toFixed(2)} / ${(total/1024/1024/1024).toFixed(2)} GB\nПлатформа: ${os.platform()} ${os.arch()}`);
+  } else if (action === "internet") {
+    const started = Date.now();
+    try {
+      const response = await fetch("https://api.telegram.org", { signal: AbortSignal.timeout(5000) });
+      await ctx.reply(`🌐 Интернет доступен. Telegram API ответил HTTP ${response.status}; задержка ${Date.now()-started} мс.`);
+    } catch (error) {
+      await ctx.reply(`⚠️ Проверка интернета не прошла: ${error.message}`);
+    }
+  } else {
+    await ctx.reply("🚫 Управление блокировками:\n/nblock ID — заблокировать пользователя\n/nunblock ID — снять блокировку\n/nreply ID текст — ответить пользователю через бота.");
+  }
+});
+
+bot.command("nblock", async (ctx) => {
+  if (!isOwner(ctx) || ctx.chat.type !== "private") return ctx.reply("⛔ Доступ запрещён.");
+  const id = String(ctx.match || "").trim().split(/\\s+/)[0];
+  if (!/^\\d+$/.test(id) || Number(id) === OWNER_ID) return ctx.reply("Формат: /nblock ID");
+  await store.setBlocked(id, true, "Заблокирован владельцем");
+  await ctx.reply(`Пользователь ${id} заблокирован.`);
+});
+
+bot.command("nunblock", async (ctx) => {
+  if (!isOwner(ctx) || ctx.chat.type !== "private") return ctx.reply("⛔ Доступ запрещён.");
+  const id = String(ctx.match || "").trim().split(/\\s+/)[0];
+  if (!/^\\d+$/.test(id)) return ctx.reply("Формат: /nunblock ID");
+  await store.setBlocked(id, false);
+  await ctx.reply(`Блокировка пользователя ${id} снята.`);
+});
+
+bot.command("nreply", async (ctx) => {
+  if (!isOwner(ctx) || ctx.chat.type !== "private") return ctx.reply("⛔ Доступ запрещён.");
+  const match = String(ctx.match || "").match(/^(\\d+)\\s+([\\s\\S]+)/);
+  if (!match) return ctx.reply("Формат: /nreply ID текст ответа");
+  await ctx.api.sendMessage(Number(match[1]), match[2]);
+  await ctx.reply("Ответ отправлен.");
+});
+
+
+bot.on("message", async (ctx) => {
+  if (!ctx.from || !ctx.chat || ctx.chat.type !== "private" || isOwner(ctx)) return;
+  try {
+    await ctx.api.sendMessage(
+      OWNER_ID,
+      `📩 Сообщение в поддержку\nОт: ${ctx.from.first_name || "пользователь"} ${ctx.from.username ? "(@" + ctx.from.username + ")" : ""}\nID: ${ctx.from.id}\nОтвет: /nreply ${ctx.from.id} текст`
+    );
+    await ctx.api.forwardMessage(OWNER_ID, ctx.chat.id, ctx.message.message_id);
+    await ctx.reply("Сообщение передано владельцу бота.");
+  } catch (error) {
+    console.error("Support forwarding failed:", error.message);
+    await ctx.reply("Не удалось передать сообщение. Попробуй позже.");
   }
 });
 
