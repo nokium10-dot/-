@@ -32,7 +32,7 @@ Owner: @nokium, Telegram ID `71195190`. The `/nadmin` panel is available only to
 ## Commands
 
 - `/start` — command overview.
-- `/ncard` — draw a random phone card; one draw per 8 minutes per user.
+- `/ncard` — draw a random phone card from the 110-model catalog; one draw per 8 minutes per user.
 - `/nakk` or plain `накк` — profile, avatar, group rank, ruble balance and collection value.
 - `/ncollection` — owned cards, duplicates included.
 - `/nachievements` — achievements and rewards.
@@ -54,7 +54,7 @@ Owner: @nokium, Telegram ID `71195190`. The `/nadmin` panel is available only to
 
 ## Catalog and images
 
-The current starter catalog has 10 verified model entries, not 110. It is not yet the final catalog. The final 110-card set and official image assets still need to be added. AI-generated phone images are prohibited; use real photos or official manufacturer renders for the exact model. Do not alter the phone itself; only card background, frame, glass, lighting, NCARD branding and manufacturer label may be styled.
+The catalog now contains 110 phone model entries in `catalog.js`. Official image assets for the exact models are still pending; `imageUrl` is intentionally null until a real manufacturer photo or official render is supplied and verified. AI-generated phone images are prohibited. Do not alter the phone itself; only card background, frame, glass, lighting, NCARD branding and manufacturer label may be styled.
 
 ## Database
 
