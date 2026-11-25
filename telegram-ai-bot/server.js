@@ -1,5 +1,6 @@
 const express = require("express");
 const { Bot, InlineKeyboard } = require("grammy");
+const store = require("./storage");
 
 const required = ["TELEGRAM_BOT_TOKEN", "WEBHOOK_SECRET"];
 for (const name of required) {
@@ -16,15 +17,20 @@ const OWNER_USERNAME = "nokium";
 const CARD_COOLDOWN_MS = 8 * 60 * 1000;
 
 const RARITIES = {
-  "Обычная": { weight: 60, value: 100 },
-  "Необычная": { weight: 25, value: 300 },
-  "Редкая": { weight: 10, value: 900 },
-  "Эпическая": { weight: 4, value: 2500 },
-  "Легендарная": { weight: 1, value: 8000 }
+  "Обычная": { weight: 60, color: "⚪" },
+  "Необычная": { weight: 25, color: "🟢" },
+  "Редкая": { weight: 10, color: "🔵" },
+  "Эпическая": { weight: 4, color: "🟣" },
+  "Легендарная": { weight: 1, color: "🟡" },
+  "Мифическая": { weight: 0.5, color: "🔴" },
+  "Древняя": { weight: 0.25, color: "🩵" },
+  "Божественная": { weight: 0.12, color: "✨" },
+  "Секретная": { weight: 0.06, color: "⚫" },
+  "Эксклюзив": { weight: 0.03, color: "💗" }
 };
 
-// Starter catalogue. The complete 110-card catalogue and verified original
-// manufacturer images will be added in a later content pass.
+// Temporary starter set. Only verified models are listed here; official
+// manufacturer images are intentionally not fabricated or AI-generated.
 const CARDS = [
   { id: "iphone-13", name: "iPhone 13", brand: "Apple", rarity: "Обычная", value: 100 },
   { id: "galaxy-a55", name: "Galaxy A55", brand: "Samsung", rarity: "Обычная", value: 100 },
@@ -42,31 +48,6 @@ const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN);
 const app = express();
 app.use(express.json({ limit: "1mb" }));
 
-// Temporary in-memory state. A persistent database will be connected before
-// production use so collections and cooldowns survive service restarts.
-const users = new Map();
-const cooldowns = new Map();
-
-function getUser(from) {
-  if (!users.has(from.id)) {
-    users.set(from.id, {
-      id: from.id,
-      username: from.username || null,
-      name: [from.first_name, from.last_name].filter(Boolean).join(" "),
-      balance: 0,
-      cards: [],
-      achievements: [],
-      views: 0,
-      title: null,
-      profileBackground: null
-    });
-  }
-  const user = users.get(from.id);
-  user.username = from.username || user.username;
-  user.name = [from.first_name, from.last_name].filter(Boolean).join(" ") || user.name;
-  return user;
-}
-
 function isOwner(ctx) {
   return Boolean(ctx.from && Number(ctx.from.id) === OWNER_ID);
 }
@@ -81,19 +62,24 @@ function weightedCard() {
   return CARDS[0];
 }
 
-function remainingCooldown(userId) {
-  const until = cooldowns.get(userId) || 0;
-  return Math.max(0, until - Date.now());
-}
-
 function formatTime(ms) {
   const minutes = Math.floor(ms / 60000);
   const seconds = Math.ceil((ms % 60000) / 1000);
   return minutes ? `${minutes} мин. ${seconds} сек.` : `${seconds} сек.`;
 }
 
+// Register users and group membership on every incoming message.
+bot.use(async (ctx, next) => {
+  if (ctx.from) {
+    await store.upsertUser(ctx.from);
+    if (ctx.chat && ctx.chat.type !== "private") {
+      await store.recordGroupMember(ctx.chat.id, ctx.from.id);
+    }
+  }
+  await next();
+});
+
 bot.command("start", async (ctx) => {
-  getUser(ctx.from);
   await ctx.reply(
     "Добро пожаловать в NCARD!\n\n" +
     "🎴 /ncard — получить карточку (кулдаун 8 минут)\n" +
@@ -104,22 +90,23 @@ bot.command("start", async (ctx) => {
 });
 
 bot.command("ncard", async (ctx) => {
-  const user = getUser(ctx.from);
-  const wait = remainingCooldown(ctx.from.id);
+  const userId = ctx.from.id;
+  const now = Date.now();
+  const wait = Math.max(0, await store.getCooldown(userId) - now);
   if (wait > 0) {
     await ctx.reply(`⏳ Следующую карточку можно получить через ${formatTime(wait)}.`);
     return;
   }
 
   const card = weightedCard();
-  user.cards.push({ ...card, obtainedAt: Date.now() });
-  cooldowns.set(ctx.from.id, Date.now() + CARD_COOLDOWN_MS);
-
+  await store.addCard(userId, card);
+  await store.setCooldown(userId, now + CARD_COOLDOWN_MS);
+  const rarityColor = RARITIES[card.rarity]?.color || "💠";
   await ctx.reply(
     `🎴 **Новая карточка NCARD!**\n\n` +
     `📱 ${card.name}\n` +
     `🏭 Производитель: ${card.brand}\n` +
-    `💠 Редкость: ${card.rarity}\n` +
+    `${rarityColor} Редкость: ${card.rarity}\n` +
     `💰 Стоимость: ${card.value.toLocaleString("ru-RU")} ₽\n\n` +
     `⏳ Следующая карточка через 8 минут.`,
     { parse_mode: "Markdown" }
@@ -127,41 +114,44 @@ bot.command("ncard", async (ctx) => {
 });
 
 bot.command(["nakk", "накк"], async (ctx) => {
-  const user = getUser(ctx.from);
-  const totalValue = user.cards.reduce((sum, card) => sum + card.value, 0);
-  const groupUsers = [...users.values()].sort((a, b) => b.cards.length - a.cards.length);
-  const place = groupUsers.findIndex(item => item.id === user.id) + 1;
+  const collection = await store.getCollection(ctx.from.id);
+  const totalValue = collection.reduce((sum, card) => sum + Number(card.value), 0);
+  const ranking = ctx.chat.type === "private"
+    ? []
+    : await store.getGroupRanking(ctx.chat.id, 1000);
+  const place = ranking.findIndex(item => item.id === ctx.from.id) + 1;
+  const placeText = ctx.chat.type === "private" ? "открой команду в группе" : (place ? `#${place}` : "—");
+  const name = [ctx.from.first_name, ctx.from.last_name].filter(Boolean).join(" ") || "игрок";
   await ctx.reply(
-    `👤 Профиль ${user.name || "игрок"}\n\n` +
-    `🏆 Место в локальном рейтинге: #${place}\n` +
-    `💰 Баланс: ${user.balance.toLocaleString("ru-RU")} ₽\n` +
-    `📱 Карточек: ${user.cards.length}\n` +
+    `👤 Профиль ${name}\n\n` +
+    `🏆 Место в рейтинге группы: ${placeText}\n` +
+    `💰 Баланс: 0 ₽\n` +
+    `📱 Карточек: ${collection.length}\n` +
     `💎 Стоимость коллекции: ${totalValue.toLocaleString("ru-RU")} ₽\n` +
-    `🎖 Достижений: ${user.achievements.length}`
+    `🎖 Достижений: 0`
   );
 });
 
 bot.command("ntop", async (ctx) => {
-  const ranking = [...users.values()].sort((a, b) => b.cards.length - a.cards.length).slice(0, 10);
+  if (ctx.chat.type === "private") {
+    await ctx.reply("Команда /ntop работает в группе — там показывается рейтинг её участников.");
+    return;
+  }
+  const ranking = await store.getGroupRanking(ctx.chat.id, 10);
   if (!ranking.length) return ctx.reply("Пока рейтинг пуст.");
-  const lines = ranking.map((u, i) => `${i + 1}. ${u.name || u.username || u.id} — ${u.cards.length} карточек`);
-  await ctx.reply("🏆 Рейтинг NCARD\n\n" + lines.join("\n"));
+  const lines = ranking.map((u, i) =>
+    `${i + 1}. ${u.name || (u.username ? "@" + u.username : u.id)} — ${u.count} карточек`
+  );
+  await ctx.reply("🏆 Рейтинг NCARD этой группы\n\n" + lines.join("\n"));
 });
 
 bot.command("nsettings", async (ctx) => {
-  getUser(ctx.from);
-  await ctx.reply("⚙️ Настройки профиля\nТитулы и фоны появятся после добавления системы достижений.");
+  await ctx.reply("⚙️ Настройки профиля\nСистема титулов и фонов будет подключена вместе с достижениями.");
 });
 
 bot.command("nadmin", async (ctx) => {
-  if (!isOwner(ctx)) {
-    await ctx.reply("⛔ Доступ запрещён.");
-    return;
-  }
-  if (ctx.chat.type !== "private") {
-    await ctx.reply("Открой личный чат с ботом и введи /nadmin.");
-    return;
-  }
+  if (!isOwner(ctx)) return ctx.reply("⛔ Доступ запрещён.");
+  if (ctx.chat.type !== "private") return ctx.reply("Открой личный чат с ботом и введи /nadmin.");
   const keyboard = new InlineKeyboard()
     .text("📊 Статистика", "admin:stats")
     .row()
@@ -179,18 +169,21 @@ bot.callbackQuery(/^admin:/, async (ctx) => {
   }
   const action = ctx.callbackQuery.data.split(":")[1];
   if (action === "stats") {
+    const stats = await store.getStats();
     await ctx.answerCallbackQuery();
     await ctx.reply(
-      `📊 Статистика NCARD\nИгроков в памяти: ${users.size}\nКарточек в каталоге: ${CARDS.length}\nКулдаун: 8 минут`
+      `📊 Статистика NCARD\nИгроков: ${stats.users}\nВыдано карточек: ${stats.cards}\nКарточек в каталоге: ${CARDS.length}\nХранилище: ${store.persistent ? "PostgreSQL" : "временная память"}`
     );
   } else if (action === "catalog") {
     await ctx.answerCallbackQuery();
-    await ctx.reply("📚 В стартовом каталоге " + CARDS.length + " карточек. Полный каталог из 110 моделей будет добавлен после проверки моделей и официальных изображений.");
+    await ctx.reply(
+      `📚 В каталоге ${CARDS.length} стартовых карточек. Полный каталог из 110 моделей будет добавлен после проверки точных моделей и официальных изображений.`
+    );
   }
 });
 
 app.get("/", (_req, res) => res.status(200).send("NCARD Telegram bot is running."));
-app.get("/health", (_req, res) => res.json({ ok: true }));
+app.get("/health", (_req, res) => res.json({ ok: true, storage: store.persistent ? "postgres" : "memory" }));
 
 app.post(`/telegram/${WEBHOOK_SECRET}`, async (req, res) => {
   if (req.get("X-Telegram-Bot-Api-Secret-Token") !== WEBHOOK_SECRET) {
@@ -204,29 +197,40 @@ app.post(`/telegram/${WEBHOOK_SECRET}`, async (req, res) => {
   }
 });
 
-const server = app.listen(PORT, async () => {
-  console.log(`NCARD HTTP server listening on ${PORT}`);
-  const publicUrl = process.env.RENDER_EXTERNAL_URL;
-  if (!publicUrl) {
-    console.error("RENDER_EXTERNAL_URL is missing; webhook was not configured.");
-    return;
-  }
-  try {
-    await bot.init();
-    console.log(`NCARD bot initialized: @${bot.botInfo.username}`);
-    await bot.api.setWebhook(`${publicUrl}/telegram/${WEBHOOK_SECRET}`, {
-      secret_token: WEBHOOK_SECRET,
-      allowed_updates: ["message", "callback_query"]
-    });
-    console.log("Telegram webhook configured.");
-  } catch (error) {
-    console.error("Failed to configure Telegram webhook:", error.message);
-  }
-});
+let server;
+async function start() {
+  await store.init();
+  server = app.listen(PORT, async () => {
+    console.log(`NCARD HTTP server listening on ${PORT}`);
+    const publicUrl = process.env.RENDER_EXTERNAL_URL;
+    if (!publicUrl) {
+      console.error("RENDER_EXTERNAL_URL is missing; webhook was not configured.");
+      return;
+    }
+    try {
+      await bot.init();
+      console.log(`NCARD bot initialized: @${bot.botInfo.username}`);
+      await bot.api.setWebhook(`${publicUrl}/telegram/${WEBHOOK_SECRET}`, {
+        secret_token: WEBHOOK_SECRET,
+        allowed_updates: ["message", "callback_query"]
+      });
+      console.log("Telegram webhook configured.");
+    } catch (error) {
+      console.error("Failed to configure Telegram webhook:", error.message);
+    }
+  });
+}
 
 async function shutdown() {
   try { await bot.api.deleteWebhook(); } catch (_) {}
-  server.close(() => process.exit(0));
+  if (server) server.close();
+  await store.close();
+  process.exit(0);
 }
+
 process.on("SIGTERM", shutdown);
 process.on("SIGINT", shutdown);
+start().catch(error => {
+  console.error("NCARD startup failed:", error);
+  process.exit(1);
+});
