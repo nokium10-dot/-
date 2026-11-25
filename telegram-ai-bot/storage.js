@@ -15,7 +15,8 @@ const memory = {
   cooldowns: new Map(),
   cards: [],
   groupMembers: new Map(),
-  nextCopyId: 1
+  nextCopyId: 1,
+  blockedUsers: new Set()
 };
 
 function memoryUser(id) {
@@ -76,6 +77,11 @@ async function init() {
       PRIMARY KEY(chat_id, telegram_id)
     );
     CREATE INDEX IF NOT EXISTS ncard_group_rank_idx ON ncard_group_members(chat_id, telegram_id);
+    CREATE TABLE IF NOT EXISTS ncard_user_blocks (
+      telegram_id BIGINT PRIMARY KEY REFERENCES ncard_users(telegram_id) ON DELETE CASCADE,
+      reason TEXT NOT NULL DEFAULT '',
+      blocked_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
     CREATE TABLE IF NOT EXISTS ncard_admin_log (
       id BIGSERIAL PRIMARY KEY,
       owner_id BIGINT NOT NULL,
@@ -323,6 +329,28 @@ async function setProfileField(userId, field, value) {
   await pool.query(`UPDATE ncard_users SET ${column}=$2,updated_at=NOW() WHERE telegram_id=$1`, [String(userId), value]);
 }
 
+async function isBlocked(userId) {
+  if (!pool) return memory.blockedUsers.has(Number(userId));
+  const r = await pool.query("SELECT 1 FROM ncard_user_blocks WHERE telegram_id=$1", [String(userId)]);
+  return r.rowCount > 0;
+}
+
+async function setBlocked(userId, blocked, reason = "") {
+  if (!pool) {
+    if (blocked) memory.blockedUsers.add(Number(userId));
+    else memory.blockedUsers.delete(Number(userId));
+    return;
+  }
+  if (blocked) {
+    await pool.query(
+      "INSERT INTO ncard_user_blocks(telegram_id,reason) VALUES($1,$2) ON CONFLICT(telegram_id) DO UPDATE SET reason=EXCLUDED.reason,blocked_at=NOW()",
+      [String(userId), reason]
+    );
+  } else {
+    await pool.query("DELETE FROM ncard_user_blocks WHERE telegram_id=$1", [String(userId)]);
+  }
+}
+
 async function getStats() {
   if (!pool) {
     return {
@@ -352,6 +380,6 @@ async function close() {
 module.exports = {
   init, upsertUser, getUser, recordGroupMember, getCooldown, claimCooldown,
   setCooldown, addCard, getCollection, getGroupRanking, addBalance,
-  awardAchievement, setProfileField, massUpgrade, getStats, logAdminGrant, close,
+  awardAchievement, setProfileField, massUpgrade, isBlocked, setBlocked, getStats, logAdminGrant, close,
   persistent: Boolean(pool)
 };
