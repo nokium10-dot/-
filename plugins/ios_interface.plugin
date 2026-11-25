@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from typing import Any, List
 
 from base_plugin import BasePlugin, MethodHook
@@ -5,17 +6,15 @@ from hook_utils import find_class
 from ui.settings import Header, Switch, Selector, Text
 from java import jint
 
-
 __id__ = "ios_interface"
 __name__ = "iOS Interface"
-__description__ = "iOS-inspired Telegram interface colors and appearance."
+__description__ = "iOS-inspired Telegram colors and rounded chat composer."
 __author__ = "pirtech"
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 __icon__ = "exteraPlugins/1"
 __app_version__ = ">=12.5.1"
 __sdk_version__ = ">=1.4.4.3"
 __category__ = "appearance"
-
 
 LIGHT_COLORS = {
     "key_windowBackgroundWhite": 0xFFFFFFFF,
@@ -33,7 +32,6 @@ LIGHT_COLORS = {
     "key_switchTrackChecked": 0xFF34C759,
     "key_checkbox": 0xFF007AFF,
 }
-
 DARK_COLORS = {
     "key_windowBackgroundWhite": 0xFF1C1C1E,
     "key_windowBackgroundGray": 0xFF000000,
@@ -60,11 +58,8 @@ class IOSColorHook(MethodHook):
         try:
             if not self.plugin.get_setting("enabled", True):
                 return
-
-            palette = int(self.plugin.get_setting("palette", 0))
-            colors = DARK_COLORS if palette == 1 else LIGHT_COLORS
+            colors = DARK_COLORS if int(self.plugin.get_setting("palette", 0)) == 1 else LIGHT_COLORS
             key = int(param.args[0])
-
             for name, color in colors.items():
                 if self.plugin.key_names.get(name) != key:
                     continue
@@ -75,73 +70,150 @@ class IOSColorHook(MethodHook):
                 param.setResult(int(color))
                 return
         except Exception as exc:
-            self.plugin.logger.warning("iOS Interface color hook skipped: %s" % exc)
+            self.plugin.logger.warning("iOS color hook skipped: %s" % exc)
+
+
+class ChatCreateViewHook(MethodHook):
+    def __init__(self, plugin):
+        self.plugin = plugin
+
+    def after_hooked_method(self, param):
+        try:
+            chat = param.thisObject
+            from android_utils import run_on_ui_thread
+            run_on_ui_thread(lambda: self.plugin.style_chat_composer(chat))
+        except Exception as exc:
+            self.plugin.logger.warning("iOS composer hook skipped: %s" % exc)
 
 
 class IOSInterfacePlugin(BasePlugin):
     def on_plugin_load(self):
-        self.theme_class = None
         self.key_names = {}
         self._color_hook = None
+        self._chat_hook = None
+        try:
+            theme = find_class("org.telegram.ui.ActionBar.Theme")
+            if theme is not None:
+                for name in set(LIGHT_COLORS) | set(DARK_COLORS):
+                    try:
+                        self.key_names[name] = int(getattr(theme, name))
+                    except Exception:
+                        pass
+                method = theme.getDeclaredMethod("getColor", jint)
+                method.setAccessible(True)
+                self._color_hook = self.hook_method(method, IOSColorHook(self), priority=50)
+        except Exception as exc:
+            self.logger.error("Color hook initialization failed: %s" % exc)
 
         try:
-            self.theme_class = find_class("org.telegram.ui.ActionBar.Theme")
-            if self.theme_class is None:
-                self.logger.warning("Telegram Theme class was not found.")
+            chat_class = find_class("org.telegram.ui.ChatActivity")
+            context_class = find_class("android.content.Context")
+            if chat_class is not None and context_class is not None:
+                method = chat_class.getDeclaredMethod("createView", context_class)
+                method.setAccessible(True)
+                self._chat_hook = self.hook_method(method, ChatCreateViewHook(self), priority=50)
+        except Exception as exc:
+            self.logger.warning("Chat composer hook unavailable: %s" % exc)
+
+    @staticmethod
+    def _get_field(obj, name):
+        try:
+            field = obj.getClass().getDeclaredField(name)
+            field.setAccessible(True)
+            return field.get(obj)
+        except Exception:
+            return None
+
+    def style_chat_composer(self, chat):
+        if not self.get_setting("enabled", True):
+            return
+        if not self.get_setting("ios_composer", True):
+            return
+        try:
+            from android.graphics import Color
+            from android.graphics.drawable import GradientDrawable
+            from org.telegram.messenger import AndroidUtilities
+
+            enter = self._get_field(chat, "chatActivityEnterView")
+            if enter is None:
+                return
+            edit = enter.getEditField()
+            if edit is None:
                 return
 
-            for name in set(LIGHT_COLORS) | set(DARK_COLORS):
-                try:
-                    self.key_names[name] = int(getattr(self.theme_class, name))
-                except Exception:
-                    continue
+            dark = int(self.get_setting("palette", 0)) == 1
+            fill = 0xFF2C2C2E if dark else 0xFFF2F2F7
+            text = 0xFFFFFFFF if dark else 0xFF111111
+            hint = 0xFF98989F if dark else 0xFF8E8E93
 
-            get_color = self.theme_class.getDeclaredMethod("getColor", jint)
-            get_color.setAccessible(True)
-            self._color_hook = self.hook_method(get_color, IOSColorHook(self), priority=50)
-            self.logger.info("iOS Interface 2.0.0 color palette hook loaded.")
+            shape = GradientDrawable()
+            shape.setShape(GradientDrawable.RECTANGLE)
+            shape.setColor(fill)
+            shape.setCornerRadius(AndroidUtilities.dp(23))
+            shape.setStroke(AndroidUtilities.dp(1), 0x263C3C43 if dark else 0x1F000000)
+            edit.setBackground(shape)
+            edit.setTextColor(Color.valueOf(text).toArgb())
+            edit.setHintTextColor(Color.valueOf(hint).toArgb())
+            edit.setPadding(
+                AndroidUtilities.dp(15), edit.getPaddingTop(),
+                AndroidUtilities.dp(15), edit.getPaddingBottom()
+            )
+            try:
+                edit.setMinHeight(AndroidUtilities.dp(42))
+            except Exception:
+                pass
+            try:
+                edit.setBackgroundTintList(None)
+            except Exception:
+                pass
         except Exception as exc:
-            self.logger.error("Could not initialize iOS Interface: %s" % exc)
+            self.logger.warning("Could not style chat composer: %s" % exc)
+
+    def on_plugin_unload(self):
+        for hook in (self._color_hook, self._chat_hook):
+            if hook:
+                try:
+                    self.unhook_method(hook)
+                except Exception:
+                    pass
+        self._color_hook = None
+        self._chat_hook = None
 
     def create_settings(self) -> List[Any]:
         return [
             Header(text="iOS Interface"),
             Switch(
-                key="enabled",
-                text="Включить оформление",
-                default=True,
-                subtext="Включает цветовую палитру в стиле iOS.",
-                icon="msg_theme",
+                key="enabled", text="Включить оформление", default=True,
+                subtext="Включает палитру и оформление поля ввода.", icon="msg_theme",
             ),
             Selector(
-                key="palette",
-                text="Цветовая тема",
-                default=0,
-                items=["iOS Light", "iOS Dark"],
-                icon="msg_palette",
+                key="palette", text="Цветовая тема", default=0,
+                items=["iOS Light", "iOS Dark"], icon="msg_palette",
             ),
-            Header(text="Элементы интерфейса"),
+            Header(text="Интерфейс чата"),
             Switch(
-                key="recolor_bubbles",
-                text="Оформление облаков сообщений",
+                key="ios_composer", text="Округлённое поле ввода iOS",
                 default=True,
-                subtext="Синие исходящие и светло-серые входящие сообщения.",
+                subtext="Скруглённая светлая или тёмная панель ввода с отступами.",
+                icon="msg_edit",
+            ),
+            Switch(
+                key="recolor_bubbles", text="Окрашивать облака сообщений",
+                default=True, subtext="Синие исходящие и серые входящие сообщения.",
                 icon="msg_bubble",
             ),
             Switch(
-                key="tint_top_bar",
-                text="Оформление верхней панели",
-                default=True,
-                subtext="Цвета заголовка и значков в стиле iOS.",
+                key="tint_top_bar", text="Оформление верхней панели",
+                default=True, subtext="Цвета заголовка и значков в стиле iOS.",
                 icon="msg_gallery",
             ),
             Header(text="О плагине"),
             Text(
-                text="iOS Interface · pirtech · 2.0.0",
+                text="iOS Interface · pirtech · 2.1.0",
                 subtext=(
-                    "Изменяет доступные цвета Telegram. Скругления, системный "
-                    "шрифт, компоновка экранов, анимации и поле ввода зависят "
-                    "от интерфейса и API конкретной сборки AyuGram."
+                    "Добавлены реальные изменения Android-поля ввода и хуки чата. "
+                    "Это не полная замена всех экранов Telegram: список диалогов, "
+                    "навигация и системные панели остаются нативными для AyuGram."
                 ),
                 icon="msg_info",
             ),
