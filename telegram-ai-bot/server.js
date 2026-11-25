@@ -451,7 +451,7 @@ bot.command("nunblock", async (ctx) => {
 
 bot.command("nreply", async (ctx) => {
   if (!isOwner(ctx) || ctx.chat.type !== "private") return ctx.reply("⛔ Доступ запрещён.");
-  const match = String(ctx.match || "").match(/^(\d+)\s+([\s\\S]+)/);
+  const match = String(ctx.match || "").match(/^(\d+)\s+([\s\S]+)/);
   if (!match) return ctx.reply("Формат: /nreply ID текст ответа");
   await ctx.api.sendMessage(Number(match[1]), match[2]);
   await ctx.reply("Ответ отправлен.");
