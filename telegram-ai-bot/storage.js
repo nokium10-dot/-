@@ -3,7 +3,10 @@ const { Pool } = require("pg");
 const pool = process.env.DATABASE_URL
   ? new Pool({
       connectionString: process.env.DATABASE_URL,
-      ssl: process.env.PGSSLMODE === "disable" ? false : { rejectUnauthorized: false }
+      ssl: process.env.PGSSLMODE === "disable" ? false : { rejectUnauthorized: false },
+      max: 5,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 10000
     })
   : null;
 
@@ -13,6 +16,17 @@ const memory = {
   cards: [],
   groupMembers: new Map()
 };
+
+function memoryUser(id) {
+  const key = Number(id);
+  if (!memory.users.has(key)) {
+    memory.users.set(key, {
+      id: key, username: null, name: "", balance: 0,
+      achievements: [], views: 0, title: null, profileBackground: null
+    });
+  }
+  return memory.users.get(key);
+}
 
 async function init() {
   if (!pool) {
@@ -32,6 +46,11 @@ async function init() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    ALTER TABLE ncard_users ADD COLUMN IF NOT EXISTS title TEXT;
+    ALTER TABLE ncard_users ADD COLUMN IF NOT EXISTS profile_background TEXT;
+    ALTER TABLE ncard_users ADD COLUMN IF NOT EXISTS achievements JSONB NOT NULL DEFAULT '[]'::jsonb;
+    ALTER TABLE ncard_users ADD COLUMN IF NOT EXISTS balance BIGINT NOT NULL DEFAULT 0;
+
     CREATE TABLE IF NOT EXISTS ncard_cards (
       id BIGSERIAL PRIMARY KEY,
       telegram_id BIGINT NOT NULL REFERENCES ncard_users(telegram_id) ON DELETE CASCADE,
@@ -43,6 +62,8 @@ async function init() {
       obtained_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE INDEX IF NOT EXISTS ncard_cards_user_idx ON ncard_cards(telegram_id);
+    CREATE INDEX IF NOT EXISTS ncard_cards_rarity_idx ON ncard_cards(telegram_id, rarity);
+
     CREATE TABLE IF NOT EXISTS ncard_cooldowns (
       telegram_id BIGINT PRIMARY KEY REFERENCES ncard_users(telegram_id) ON DELETE CASCADE,
       until_ms BIGINT NOT NULL
@@ -63,38 +84,47 @@ async function init() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
+  console.log("NCARD PostgreSQL storage initialized.");
 }
 
 async function upsertUser(from) {
   const name = [from.first_name, from.last_name].filter(Boolean).join(" ");
   if (!pool) {
-    const old = memory.users.get(from.id) || {
-      id: from.id, username: null, name: "", balance: 0,
-      achievements: [], views: 0, title: null, profileBackground: null
-    };
-    old.username = from.username || old.username;
-    old.name = name || old.name;
-    memory.users.set(from.id, old);
-    return old;
+    const u = memoryUser(from.id);
+    u.username = from.username || u.username;
+    u.name = name || u.name;
+    return { ...u };
   }
-  const result = await pool.query(
+  const r = await pool.query(
     `INSERT INTO ncard_users(telegram_id, username, display_name)
      VALUES($1,$2,$3)
      ON CONFLICT(telegram_id) DO UPDATE SET
-       username=EXCLUDED.username,
+       username=COALESCE(EXCLUDED.username,ncard_users.username),
        display_name=CASE WHEN EXCLUDED.display_name='' THEN ncard_users.display_name ELSE EXCLUDED.display_name END,
        updated_at=NOW()
-     RETURNING telegram_id, username, display_name, balance, achievements,
-       profile_views, title, profile_background`,
+     RETURNING telegram_id,username,display_name,balance,achievements,profile_views,title,profile_background`,
     [String(from.id), from.username || null, name]
   );
-  const u = result.rows[0];
+  return mapUser(r.rows[0]);
+}
+
+function mapUser(u) {
+  if (!u) return null;
   return {
     id: Number(u.telegram_id), username: u.username, name: u.display_name,
-    balance: Number(u.balance), achievements: u.achievements || [],
-    views: Number(u.profile_views), title: u.title,
+    balance: Number(u.balance || 0), achievements: u.achievements || [],
+    views: Number(u.profile_views || 0), title: u.title,
     profileBackground: u.profile_background
   };
+}
+
+async function getUser(userId) {
+  if (!pool) return { ...memoryUser(userId) };
+  const r = await pool.query(
+    "SELECT telegram_id,username,display_name,balance,achievements,profile_views,title,profile_background FROM ncard_users WHERE telegram_id=$1",
+    [String(userId)]
+  );
+  return mapUser(r.rows[0]);
 }
 
 async function recordGroupMember(chatId, userId) {
@@ -107,8 +137,8 @@ async function recordGroupMember(chatId, userId) {
   }
   await pool.query(
     `INSERT INTO ncard_group_members(chat_id,telegram_id)
-     VALUES($1,$2)
-     ON CONFLICT(chat_id,telegram_id) DO UPDATE SET last_seen=NOW()`,
+     VALUES($1,$2) ON CONFLICT(chat_id,telegram_id)
+     DO UPDATE SET last_seen=NOW()`,
     [String(chatId), String(userId)]
   );
 }
@@ -117,6 +147,26 @@ async function getCooldown(userId) {
   if (!pool) return memory.cooldowns.get(Number(userId)) || 0;
   const r = await pool.query("SELECT until_ms FROM ncard_cooldowns WHERE telegram_id=$1", [String(userId)]);
   return r.rowCount ? Number(r.rows[0].until_ms) : 0;
+}
+
+async function claimCooldown(userId, now, duration) {
+  const until = now + duration;
+  if (!pool) {
+    const current = memory.cooldowns.get(Number(userId)) || 0;
+    if (current > now) return { ok: false, until: current };
+    memory.cooldowns.set(Number(userId), until);
+    return { ok: true, until };
+  }
+  const r = await pool.query(
+    `INSERT INTO ncard_cooldowns(telegram_id,until_ms)
+     VALUES($1,$2)
+     ON CONFLICT(telegram_id) DO UPDATE SET until_ms=EXCLUDED.until_ms
+     WHERE ncard_cooldowns.until_ms <= $3
+     RETURNING until_ms`,
+    [String(userId), String(until), String(now)]
+  );
+  if (r.rowCount) return { ok: true, until: Number(r.rows[0].until_ms) };
+  return { ok: false, until: await getCooldown(userId) };
 }
 
 async function setCooldown(userId, untilMs) {
@@ -133,27 +183,30 @@ async function setCooldown(userId, untilMs) {
 
 async function addCard(userId, card) {
   if (!pool) {
-    const user = memory.users.get(Number(userId));
-    if (user) {
-      if (!user.cards) user.cards = [];
-      user.cards.push({ ...card, obtainedAt: Date.now() });
-    }
-    return;
+    const u = memoryUser(userId);
+    const entry = { ...card, obtainedAt: Date.now() };
+    memory.cards.push({ userId: Number(userId), ...entry });
+    return entry;
   }
-  await pool.query(
+  const r = await pool.query(
     `INSERT INTO ncard_cards(telegram_id,card_key,model,brand,rarity,value)
-     VALUES($1,$2,$3,$4,$5,$6)`,
+     VALUES($1,$2,$3,$4,$5,$6)
+     RETURNING id,obtained_at`,
     [String(userId), card.id, card.name, card.brand, card.rarity, card.value]
   );
+  return { ...card, copyId: Number(r.rows[0].id), obtainedAt: new Date(r.rows[0].obtained_at).getTime() };
 }
 
 async function getCollection(userId) {
-  if (!pool) return memory.users.get(Number(userId))?.cards || [];
+  if (!pool) return memory.cards.filter(c => c.userId === Number(userId)).map(({ userId: _id, ...c }) => c);
   const r = await pool.query(
-    "SELECT card_key AS id, model AS name, brand, rarity, value, obtained_at FROM ncard_cards WHERE telegram_id=$1 ORDER BY obtained_at DESC",
+    "SELECT id AS copy_id,card_key AS id,model AS name,brand,rarity,value,obtained_at FROM ncard_cards WHERE telegram_id=$1 ORDER BY obtained_at DESC",
     [String(userId)]
   );
-  return r.rows.map(c => ({ ...c, value: Number(c.value), obtainedAt: new Date(c.obtained_at).getTime() }));
+  return r.rows.map(c => ({
+    ...c, copyId: Number(c.copy_id), value: Number(c.value),
+    obtainedAt: new Date(c.obtained_at).getTime()
+  }));
 }
 
 async function getGroupRanking(chatId, limit = 10) {
@@ -161,18 +214,17 @@ async function getGroupRanking(chatId, limit = 10) {
     const ids = memory.groupMembers.get(String(chatId)) || new Set();
     return [...ids].map(id => {
       const u = memory.users.get(id);
-      return u ? { id, name: u.name, username: u.username, count: (u.cards || []).length } : null;
+      return u ? { id, name: u.name, username: u.username, count: memory.cards.filter(c => c.userId === id).length } : null;
     }).filter(Boolean).sort((a,b) => b.count-a.count).slice(0, limit);
   }
   const r = await pool.query(
-    `SELECT u.telegram_id, u.display_name, u.username, COUNT(c.id)::int AS card_count
+    `SELECT u.telegram_id,u.display_name,u.username,COUNT(c.id)::int AS card_count
      FROM ncard_group_members gm
      JOIN ncard_users u ON u.telegram_id=gm.telegram_id
      LEFT JOIN ncard_cards c ON c.telegram_id=u.telegram_id
      WHERE gm.chat_id=$1
      GROUP BY u.telegram_id,u.display_name,u.username
-     ORDER BY card_count DESC,u.display_name ASC
-     LIMIT $2`,
+     ORDER BY card_count DESC,u.display_name ASC LIMIT $2`,
     [String(chatId), limit]
   );
   return r.rows.map(u => ({
@@ -181,17 +233,63 @@ async function getGroupRanking(chatId, limit = 10) {
   }));
 }
 
+async function addBalance(userId, amount) {
+  if (!Number.isSafeInteger(amount)) throw new Error("Balance amount must be a safe integer.");
+  if (!pool) {
+    const u = memoryUser(userId);
+    u.balance += amount;
+    return u.balance;
+  }
+  const r = await pool.query(
+    "UPDATE ncard_users SET balance=balance+$2,updated_at=NOW() WHERE telegram_id=$1 RETURNING balance",
+    [String(userId), amount]
+  );
+  if (!r.rowCount) throw new Error("User not found.");
+  return Number(r.rows[0].balance);
+}
+
+async function awardAchievement(userId, achievementId, rewardRubles = 0) {
+  if (!pool) {
+    const u = memoryUser(userId);
+    if (u.achievements.includes(achievementId)) return false;
+    u.achievements.push(achievementId);
+    u.balance += rewardRubles;
+    return true;
+  }
+  const r = await pool.query(
+    `UPDATE ncard_users
+     SET achievements=achievements || to_jsonb($2::text),
+         balance=balance+$3,updated_at=NOW()
+     WHERE telegram_id=$1 AND NOT (achievements ? $2)
+     RETURNING telegram_id`,
+    [String(userId), achievementId, rewardRubles]
+  );
+  return r.rowCount > 0;
+}
+
+async function setProfileField(userId, field, value) {
+  const columns = { title: "title", profileBackground: "profile_background" };
+  const column = columns[field];
+  if (!column) throw new Error("Unsupported profile field.");
+  if (!pool) {
+    memoryUser(userId)[field] = value;
+    return;
+  }
+  await pool.query(`UPDATE ncard_users SET ${column}=$2,updated_at=NOW() WHERE telegram_id=$1`, [String(userId), value]);
+}
+
 async function getStats() {
   if (!pool) {
     return {
       users: memory.users.size,
-      cards: [...memory.users.values()].reduce((n,u) => n + (u.cards || []).length, 0)
+      cards: memory.cards.length,
+      balance: [...memory.users.values()].reduce((n,u) => n + u.balance, 0)
     };
   }
   const r = await pool.query(
-    "SELECT (SELECT COUNT(*) FROM ncard_users)::int AS users, (SELECT COUNT(*) FROM ncard_cards)::int AS cards"
+    "SELECT (SELECT COUNT(*) FROM ncard_users)::int AS users,(SELECT COUNT(*) FROM ncard_cards)::int AS cards,(SELECT COALESCE(SUM(balance),0) FROM ncard_users)::bigint AS balance"
   );
-  return r.rows[0];
+  return { ...r.rows[0], balance: Number(r.rows[0].balance) };
 }
 
 async function logAdminGrant(ownerId, targetId, card) {
@@ -207,7 +305,8 @@ async function close() {
 }
 
 module.exports = {
-  init, upsertUser, recordGroupMember, getCooldown, setCooldown,
-  addCard, getCollection, getGroupRanking, getStats, logAdminGrant, close,
+  init, upsertUser, getUser, recordGroupMember, getCooldown, claimCooldown,
+  setCooldown, addCard, getCollection, getGroupRanking, addBalance,
+  awardAchievement, setProfileField, getStats, logAdminGrant, close,
   persistent: Boolean(pool)
 };
