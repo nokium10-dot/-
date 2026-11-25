@@ -1,54 +1,66 @@
 # NCARD Telegram bot
 
-NCARD replaces the previous AI assistant in this service. Only this folder is used for the bot; Android projects elsewhere in the repository are not changed.
+NCARD runs from this directory only. Other projects in the repository are not changed.
 
-## Render setup
+## Render
 
 - Root Directory: `telegram-ai-bot`
-- Runtime: Node
-- Build Command: `npm install`
-- Start Command: `npm start`
-- Health Check Path: `/health`
+- Runtime: Node.js 20+
+- Build: `npm install`
+- Start: `npm start`
+- Health endpoint: `/health`
 
 Required environment variables:
+- `TELEGRAM_BOT_TOKEN`
+- `WEBHOOK_SECRET` (32+ random characters)
+- `DATABASE_URL` (Render PostgreSQL **Internal Database URL**)
 
-- `TELEGRAM_BOT_TOKEN` — Telegram bot token (keep it secret).
-- `WEBHOOK_SECRET` — random string of 32+ characters.
-- `DATABASE_URL` — PostgreSQL connection string. Add a PostgreSQL database in Render and copy its **internal** connection string into this variable. Without it, the bot falls back to temporary in-memory storage and player data will be lost on restart.
+Optional backup variables:
+- `GITHUB_BACKUP_TOKEN`
+- `BACKUP_ENCRYPTION_KEY` (64 hex characters)
+- `GITHUB_BACKUP_OWNER=nokium10-dot`
+- `GITHUB_BACKUP_REPO=ncard-backups`
+- `GITHUB_BACKUP_BRANCH=main`
+- `OWNER_ID=71195190`
 
-Render provides `RENDER_EXTERNAL_URL` automatically. The app registers the Telegram webhook at startup.
+The backup script is run with `npm run backup`. Scheduling is not configured yet. Render's free web-service plan does not include a Cron Job; a GitHub Actions workflow still needs to be configured.
 
 ## Owner
 
-Owner Telegram ID: `71195190` (@nokium). Authorization uses the numeric ID. The private-chat command `/nadmin` opens the owner panel.
+Owner: @nokium, Telegram ID `71195190`. The `/nadmin` panel is available only to this account in private chat.
 
-## Commands currently implemented
+## Commands
 
-- `/start` — introduction.
-- `/ncard` — draw a random phone card; personal cooldown is 8 minutes.
-- `/nakk` — profile summary.
+- `/start` — command overview.
+- `/ncard` — draw a random phone card; one draw per 8 minutes per user.
+- `/nakk` or plain `накк` — profile, avatar, group rank, ruble balance and collection value.
+- `/ncollection` — owned cards, duplicates included.
+- `/nachievements` — achievements and rewards.
+- `/nsettings` — equip unlocked profile titles and backgrounds.
+- `/nallup` — choose a rarity and confirm a bulk upgrade of every owned card at that rarity.
 - `/ntop` — leaderboard for the current group.
-- `/nsettings` — settings placeholder.
-- `/nadmin` — owner-only panel in private chat.
+- `/nadmin` — owner-only statistics and catalog overview.
+
+## Game rules currently in code
+
+- Duplicate cards are allowed and counted individually.
+- Collection is shared between groups; group leaderboard is scoped to the current group.
+- The profile balance is displayed in rubles. T-Coins and P-Coins are not used.
+- Achievement rewards grant rubles and unlock profile titles/backgrounds.
+- Bulk upgrade success chance is currently 50%. Successful cards move up one rarity and receive that rarity's base value; failed cards are deleted. There is no upgrade fee.
+- The `/ncard` cooldown is stored persistently in PostgreSQL.
+
+## Catalog and images
+
+The current starter catalog has 10 verified model entries, not 110. It is not yet the final catalog. The final 110-card set and official image assets still need to be added. AI-generated phone images are prohibited; use real photos or official manufacturer renders for the exact model. Do not alter the phone itself; only card background, frame, glass, lighting, NCARD branding and manufacturer label may be styled.
 
 ## Database
 
-When `DATABASE_URL` is present, the app creates the following tables automatically:
+On startup, the app creates or migrates:
+- `ncard_users`
+- `ncard_cards`
+- `ncard_cooldowns`
+- `ncard_group_members`
+- `ncard_admin_log`
 
-- `ncard_users` — player identity and profile fields.
-- `ncard_cards` — each card copy owned by a player.
-- `ncard_cooldowns` — persistent personal cooldowns.
-- `ncard_group_members` — group membership for group-specific rankings.
-- `ncard_admin_log` — audit log table for future owner grants.
-
-The current leaderboard counts duplicate cards and is scoped to the group where `/ntop` is used. The player's collection is shared between groups.
-
-## Development status
-
-This is the persistent-storage foundation, not the finished game. The starter catalogue currently contains 10 models. The planned 110-card catalogue, original manufacturer images, full upgrade and achievement systems, profile titles/backgrounds, and complete admin card-grant workflow are still to be implemented.
-
-No AI-generated phone images are used. Official manufacturer images must be sourced for the exact model and must not be altered.
-
-## Deployment note
-
-The GitHub code has been updated, but the Render service has not been configured or deployed from this change. Add `DATABASE_URL` in Render before relying on persistent storage. Then deploy and check `/health`; it reports whether the process is using PostgreSQL or temporary memory.
+Without `DATABASE_URL`, storage falls back to temporary process memory and data is lost when the service restarts.
