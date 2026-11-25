@@ -427,16 +427,20 @@ bot.callbackQuery(/^admin:(stats|catalog|system|internet|blockhelp)$/, async (ct
   }
 });
 
-bot.command("nsetphoto", async (ctx) => {
-  if (!isOwner(ctx) || ctx.chat.type !== "private") return ctx.reply("⛔ Доступ запрещён.");
-  const cardKey = String(ctx.match || "").trim().split(/\s+/)[0];
+bot.on("message:photo", async (ctx, next) => {
+  if (!isOwner(ctx) || ctx.chat.type !== "private") return next();
+  const caption = String(ctx.message.caption || "");
+  const match = caption.match(/^\\/nsetphoto(?:@\\w+)?\\s+([a-z0-9-]+)/i);
+  if (!match) return next();
+  const cardKey = match[1];
   const card = CARDS.find(item => item.id === cardKey);
-  const photo = ctx.message?.photo?.at(-1);
-  if (!card || !photo) {
-    return ctx.reply("Пришли официальное фото телефона с подписью /nsetphoto ID карточки. ID можно посмотреть в каталоге проекта.");
+  if (!card) {
+    await ctx.reply("Неизвестный ID карточки. Проверь каталог catalog.js.");
+    return;
   }
+  const photo = ctx.message.photo.at(-1);
   await store.setCardPhoto(cardKey, photo.file_id);
-  await ctx.reply(`Фото для «${card.name}» сохранено. Используется оригинальный файл Telegram без изменения телефона.`);
+  await ctx.reply(`Фото для «${card.name}» сохранено. Оригинальный файл Telegram используется без изменения телефона.`);
 });
 
 bot.command("nclearphoto", async (ctx) => {
