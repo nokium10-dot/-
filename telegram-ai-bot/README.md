@@ -37,7 +37,7 @@ Owner: @nokium, Telegram ID `71195190`. The `/nadmin` panel is available only to
 - `/ncollection` — owned cards, duplicates included.
 - `/nachievements` — achievements and rewards.
 - `/nsettings` — equip unlocked profile titles and backgrounds.
-- `/nallup` — choose a rarity and confirm a bulk upgrade of every owned card at that rarity.
+- `/nallup` — exchange every group of 3 cards of a chosen rarity for 1 card of the next rarity.
 - `/ntop` — leaderboard for the current group.
 - `/nadmin` — owner-only statistics, catalog overview, host load, internet check and block controls.\n- `/ncatalog` — owner-only list of all 110 model IDs for attaching official photos.
 - `/nblock ID` and `/nunblock ID` — owner-only user blocking.
