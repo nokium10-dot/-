@@ -1,0 +1,25 @@
+name: NCARD syntax check
+
+on:
+  push:
+    paths:
+      - "telegram-ai-bot/**"
+      - ".github/workflows/ncard-check.yml"
+  pull_request:
+    paths:
+      - "telegram-ai-bot/**"
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Check JavaScript syntax
+        working-directory: telegram-ai-bot
+        run: |
+          node --check server.js
+          node --check storage.js
+          node --check backup.js
