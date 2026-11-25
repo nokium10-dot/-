@@ -240,7 +240,7 @@ bot.command("nallup", async (ctx) => {
   const keyboard = new InlineKeyboard();
   Object.keys(RARITIES).forEach((rarity, index) => {
     const count = counts.get(rarity) || 0;
-    if (count > 0 && index < Object.keys(RARITIES).length - 1) {
+    if (count >= 3 && index < Object.keys(RARITIES).length - 1) {
       keyboard.text(`${RARITIES[rarity].color} ${rarity} ×${count}`, `upgrade:select:${index}`).row();
     }
   });
@@ -248,7 +248,7 @@ bot.command("nallup", async (ctx) => {
     await ctx.reply("У тебя пока нет карточек, которые можно улучшить.");
     return;
   }
-  await ctx.reply("⚒️ Выбери редкость. Будут обработаны ВСЕ карточки этой редкости. Успех — 50%, при неудаче карточка теряется.", { reply_markup: keyboard });
+  await ctx.reply("⚒️ Обмен карточек без случайности: каждые 3 карточки одной редкости превращаются в 1 карточку следующей редкости. Остаток меньше трёх сохраняется.", { reply_markup: keyboard });
 });
 
 bot.callbackQuery(/^upgrade:select:(\d+)$/, async (ctx) => {
@@ -257,7 +257,7 @@ bot.callbackQuery(/^upgrade:select:(\d+)$/, async (ctx) => {
   const rarity = rarities[index];
   const cards = await store.getCollection(ctx.from.id);
   const count = cards.filter(card => card.rarity === rarity).length;
-  if (!rarity || !count || index >= rarities.length - 1) {
+  if (!rarity || count < 3 || index >= rarities.length - 1) {
     await ctx.answerCallbackQuery({ text: "Эти карточки уже недоступны для улучшения.", show_alert: true });
     return;
   }
@@ -267,9 +267,9 @@ bot.callbackQuery(/^upgrade:select:(\d+)$/, async (ctx) => {
     .text("❌ Отмена", "upgrade:cancel");
   await ctx.answerCallbackQuery();
   await ctx.reply(
-    `⚠️ Улучшить все карточки редкости «${rarity}»?\nКоличество: ${count}\n\n` +
-    `При успехе (50%) карточка станет «${next}» и её стоимость будет ${money(RARITY_VALUES[next])}.\n` +
-    "При неудаче карточка будет потеряна. Отменить операцию после подтверждения нельзя.",
+    `⚠️ Обменять карточки редкости «${rarity}»?\nКоличество: ${count}\n\n` +
+    `Каждые 3 карточки превращаются в 1 «${next}» стоимостью ${money(RARITY_VALUES[next])}.\n` +
+    `Будет создано улучшенных карточек: ${Math.floor(count / 3)}. Остаток ${count % 3} карточек сохранится. Случайности нет.`,
     { reply_markup: keyboard }
   );
 });
@@ -289,17 +289,14 @@ bot.callbackQuery(/^upgrade:confirm:(\d+)$/, async (ctx) => {
     return;
   }
   await ctx.answerCallbackQuery({ text: "Начинаю улучшение..." });
-  const results = await store.massUpgrade(ctx.from.id, rarity, next, RARITY_VALUES[next], 0.5);
-  if (!results.length) {
-    await ctx.editMessageText("Карточек выбранной редкости больше нет.");
+  const result = await store.massUpgrade(ctx.from.id, rarity, next, RARITY_VALUES[next]);
+  if (!result.upgraded) {
+    await ctx.editMessageText("Для обмена нужно минимум 3 карточки выбранной редкости.");
     return;
   }
-  const lines = results.map(item =>
-    `${item.success ? "✅" : "❌"} ${item.name}${item.success ? ` → ${item.rarity}` : " — карточка потеряна"}`
-  );
-  const successes = results.filter(item => item.success).length;
+  const lines = result.results.map(item => `✅ ${item.name} → ${item.rarity}`);
   await ctx.editMessageText(
-    `⚒️ Улучшение завершено\nУспешно: ${successes}\nПотеряно: ${results.length - successes}\n\n${lines.join("\n")}`
+    `⚒️ Обмен завершён\nУлучшено: ${result.upgraded}\nИспользовано карточек: ${result.consumed}\nОсталось прежней редкости: ${result.remaining}\n\n${lines.join("\n")}`
   );
 });
 
