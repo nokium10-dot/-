@@ -187,13 +187,16 @@ bot.command("ncard", async (ctx) => {
     }
     const collection = await store.getCollection(ctx.from.id);
     const rarityColor = RARITIES[card.rarity]?.color || "💠";
-    await ctx.reply(
-      `🎴 **Новая карточка NCARD!**\n\n` +
-      `📱 ${card.name}\n🏭 Производитель: ${card.brand}\n` +
-      `${rarityColor} Редкость: ${card.rarity}\n💰 Стоимость: ${money(card.value)}\n\n` +
-      "⏳ Следующая карточка через 8 минут.",
-      { parse_mode: "Markdown" }
-    );
+    const cardCaption =
+      `🎴 **Новая карточка NCARD!**\\n\\n` +
+      `📱 ${card.name}\\n🏭 Производитель: ${card.brand}\\n` +
+      `${rarityColor} Редкость: ${card.rarity}\\n💰 Стоимость: ${money(card.value)}\\n\\n` +
+      "⏳ Следующая карточка через 8 минут.";
+    if (card.imageUrl) {
+      await ctx.replyWithPhoto(card.imageUrl, { caption: cardCaption, parse_mode: "Markdown" });
+    } else {
+      await ctx.reply(cardCaption, { parse_mode: "Markdown" });
+    }
     await checkAchievements(ctx, collection, card);
   } catch (error) {
     throw error;
