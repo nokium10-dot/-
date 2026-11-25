@@ -1,4 +1,4 @@
-name: SOULBOUND Android Release
+name: PHONE EMPIRE Android Release
 on:
   push:
     branches: [main]
@@ -40,23 +40,23 @@ jobs:
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort | tail -n 1)"
           "$AAPT" dump badging "$APK" | tee /tmp/badging.txt
           grep -q "name='com.pirtech.phoneempire'" /tmp/badging.txt
-          grep -q "versionName='1.1.0'" /tmp/badging.txt
+          grep -q "versionName='1.2.0'" /tmp/badging.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: SOULBOUND-1.1.0-APK
+          name: PHONE-EMPIRE-1.2.0-APK
           path: phone-empire/build/outputs/apk/debug/phone-empire-debug.apk
           if-no-files-found: error
           retention-days: 30
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: soulbound-v1.1.0
-          name: SOULBOUND 1.1.0
+          tag_name: phone-empire-v1.2.0
+          name: PHONE EMPIRE 1.2.0
           body: |
-            SOULBOUND — original 2D pixel-art room adventure for Android.
-            Top-down movement, eight explorable rooms, NPC conversations,
-            collectible memory shards, original generated room artwork.
-            Landscape orientation. Russian story and touch controls.
+            PHONE EMPIRE — 2D side-view pixel-art smartphone business simulator for Android.
+            Walk and jump through the workshop, city, retail store and factory.
+            Design phones, manufacture batches, sell devices and grow the PIRTECH brand.
+            Landscape orientation. Russian interface and touch controls.
             Package: com.pirtech.phoneempire
           files: phone-empire/build/outputs/apk/debug/phone-empire-debug.apk
           overwrite_files: true
