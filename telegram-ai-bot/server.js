@@ -192,7 +192,10 @@ bot.command("ncard", async (ctx) => {
       `📱 ${card.name}\\n🏭 Производитель: ${card.brand}\\n` +
       `${rarityColor} Редкость: ${card.rarity}\\n💰 Стоимость: ${money(card.value)}\\n\\n` +
       "⏳ Следующая карточка через 8 минут.";
-    if (card.imageUrl) {
+    const storedPhoto = await store.getCardPhoto(card.id);
+    if (storedPhoto) {
+      await ctx.replyWithPhoto(storedPhoto, { caption: cardCaption, parse_mode: "Markdown" });
+    } else if (card.imageUrl) {
       await ctx.replyWithPhoto(card.imageUrl, { caption: cardCaption, parse_mode: "Markdown" });
     } else {
       await ctx.reply(cardCaption, { parse_mode: "Markdown" });
@@ -422,6 +425,26 @@ bot.callbackQuery(/^admin:(stats|catalog|system|internet|blockhelp)$/, async (ct
   } else {
     await ctx.reply("🚫 Управление блокировками:\n/nblock ID — заблокировать пользователя\n/nunblock ID — снять блокировку\n/nreply ID текст — ответить пользователю через бота.");
   }
+});
+
+bot.command("nsetphoto", async (ctx) => {
+  if (!isOwner(ctx) || ctx.chat.type !== "private") return ctx.reply("⛔ Доступ запрещён.");
+  const cardKey = String(ctx.match || "").trim().split(/\s+/)[0];
+  const card = CARDS.find(item => item.id === cardKey);
+  const photo = ctx.message?.photo?.at(-1);
+  if (!card || !photo) {
+    return ctx.reply("Пришли официальное фото телефона с подписью /nsetphoto ID карточки. ID можно посмотреть в каталоге проекта.");
+  }
+  await store.setCardPhoto(cardKey, photo.file_id);
+  await ctx.reply(`Фото для «${card.name}» сохранено. Используется оригинальный файл Telegram без изменения телефона.`);
+});
+
+bot.command("nclearphoto", async (ctx) => {
+  if (!isOwner(ctx) || ctx.chat.type !== "private") return ctx.reply("⛔ Доступ запрещён.");
+  const cardKey = String(ctx.match || "").trim().split(/\s+/)[0];
+  if (!CARDS.some(item => item.id === cardKey)) return ctx.reply("Неизвестный ID карточки.");
+  await store.clearCardPhoto(cardKey);
+  await ctx.reply(`Фото карточки ${cardKey} удалено из настроек.`);
 });
 
 bot.command("nblock", async (ctx) => {
