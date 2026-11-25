@@ -385,6 +385,7 @@ async function setBlocked(userId, blocked, reason = "") {
     return;
   }
   if (blocked) {
+    await pool.query("INSERT INTO ncard_users(telegram_id) VALUES($1) ON CONFLICT(telegram_id) DO NOTHING", [String(userId)]);
     await pool.query(
       "INSERT INTO ncard_user_blocks(telegram_id,reason) VALUES($1,$2) ON CONFLICT(telegram_id) DO UPDATE SET reason=EXCLUDED.reason,blocked_at=NOW()",
       [String(userId), reason]
