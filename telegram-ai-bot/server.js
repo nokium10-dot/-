@@ -391,6 +391,14 @@ bot.command("nadmin", async (ctx) => {
   await ctx.reply(`🔐 Панель владельца\nВладелец: @${OWNER_USERNAME}\nID: ${OWNER_ID}`, { reply_markup: keyboard });
 });
 
+bot.command("ncatalog", async (ctx) => {
+  if (!isOwner(ctx) || ctx.chat.type !== "private") return ctx.reply("⛔ Доступ запрещён.");
+  const lines = CARDS.map(card => `${card.id} — ${card.name} (${card.brand})`);
+  for (let i = 0; i < lines.length; i += 25) {
+    await ctx.reply(`📚 Каталог NCARD ${i + 1}–${Math.min(i + 25, lines.length)} из ${lines.length}\n\n${lines.slice(i, i + 25).join("\n")}`);
+  }
+});
+
 bot.callbackQuery(/^admin:(stats|catalog|system|internet|blockhelp)$/, async (ctx) => {
   if (!isOwner(ctx) || ctx.chat?.type !== "private") {
     await ctx.answerCallbackQuery({ text: "Доступ запрещён", show_alert: true });
@@ -404,7 +412,7 @@ bot.callbackQuery(/^admin:(stats|catalog|system|internet|blockhelp)$/, async (ct
       `📊 Статистика NCARD\nИгроков: ${stats.users}\nВыдано карточек: ${stats.cards}\nСуммарный баланс: ${money(stats.balance)}\nКарточек в каталоге: ${CARDS.length}\nХранилище: ${store.persistent ? "PostgreSQL" : "временная память"}`
     );
   } else if (action === "catalog") {
-    await ctx.reply(`📚 В каталоге ${CARDS.length} моделей. Официальные фото точных моделей ещё не подключены; для них нужны реальные фото или рендеры производителя.`);
+    await ctx.reply(`📚 В каталоге ${CARDS.length} моделей. Официальные фото точных моделей ещё не подключены; для них нужны реальные фото или рендеры производителя.\nСписок ID: /ncatalog`);
   } else if (action === "system") {
     const cpus = os.cpus();
     const total = os.totalmem();
