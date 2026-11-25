@@ -1,0 +1,65 @@
+name: PHONE EMPIRE Android Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'phone-empire/**'
+      - 'settings.gradle'
+      - '.github/workflows/phone-empire-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Build APK
+        run: gradle :phone-empire:assembleDebug --no-daemon --stacktrace
+      - name: Validate APK
+        shell: bash
+        run: |
+          APK="phone-empire/build/outputs/apk/debug/phone-empire-debug.apk"
+          test -s "$APK"
+          unzip -t "$APK"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort | tail -n 1)"
+          test -n "$AAPT"
+          "$AAPT" dump badging "$APK" | tee /tmp/phone-empire-badging.txt
+          grep -q "name='com.pirtech.phoneempire'" /tmp/phone-empire-badging.txt
+          grep -q "versionName='1.0'" /tmp/phone-empire-badging.txt
+          echo "APK size: $(stat -c%s "$APK") bytes"
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PHONE-EMPIRE-1.0-APK
+          path: phone-empire/build/outputs/apk/debug/phone-empire-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: phone-empire-v1.0.0
+          name: PHONE EMPIRE 1.0
+          body: |
+            PHONE EMPIRE — Android business simulator.
+            Russian interface, 12 story chapters, smartphone design and production,
+            research, retail, staff management, original generated soundtrack,
+            Russian text-to-speech dialogue and autosave.
+            Package: com.pirtech.phoneempire
+          files: phone-empire/build/outputs/apk/debug/phone-empire-debug.apk
+          overwrite_files: true
+          fail_on_unmatched_files: true
+          token: ${{ github.token }}
