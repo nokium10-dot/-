@@ -2,8 +2,7 @@ const express = require("express");
 const { Bot, InlineKeyboard } = require("grammy");
 const store = require("./storage");
 
-const required = ["TELEGRAM_BOT_TOKEN", "WEBHOOK_SECRET"];
-for (const name of required) {
+for (const name of ["TELEGRAM_BOT_TOKEN", "WEBHOOK_SECRET"]) {
   if (!process.env[name]) {
     console.error(`Missing required environment variable: ${name}`);
     process.exit(1);
@@ -29,8 +28,7 @@ const RARITIES = {
   "Эксклюзив": { weight: 0.03, color: "💗" }
 };
 
-// Temporary starter set. Only verified models are listed here; official
-// manufacturer images are intentionally not fabricated or AI-generated.
+// Verified starter entries only. Phone images are not synthesized or altered.
 const CARDS = [
   { id: "iphone-13", name: "iPhone 13", brand: "Apple", rarity: "Обычная", value: 100 },
   { id: "galaxy-a55", name: "Galaxy A55", brand: "Samsung", rarity: "Обычная", value: 100 },
@@ -43,6 +41,29 @@ const CARDS = [
   { id: "galaxy-s25-ultra", name: "Galaxy S25 Ultra", brand: "Samsung", rarity: "Эпическая", value: 2500 },
   { id: "pixel-9-pro-xl", name: "Pixel 9 Pro XL", brand: "Google", rarity: "Легендарная", value: 8000 }
 ];
+
+const ACHIEVEMENTS = {
+  first_card: {
+    name: "Первый экземпляр", description: "Получи первую карточку",
+    reward: 100, title: "Новичок"
+  },
+  collector_10: {
+    name: "Начинающий коллекционер", description: "Собери 10 карточек",
+    reward: 500, background: "Техно-сетка"
+  },
+  collector_50: {
+    name: "Большая коллекция", description: "Собери 50 карточек",
+    reward: 1500, title: "Коллекционер"
+  },
+  legendary: {
+    name: "Легендарная находка", description: "Получи легендарную карточку или выше",
+    reward: 1000, background: "Золотой контур"
+  },
+  exclusive: {
+    name: "За гранью редкости", description: "Получи эксклюзивную карточку",
+    reward: 5000, title: "Охотник за редкостями"
+  }
+};
 
 const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN);
 const app = express();
@@ -68,7 +89,67 @@ function formatTime(ms) {
   return minutes ? `${minutes} мин. ${seconds} сек.` : `${seconds} сек.`;
 }
 
-// Register users and group membership on every incoming message.
+function money(value) {
+  return `${Number(value || 0).toLocaleString("ru-RU")} ₽`;
+}
+
+async function checkAchievements(ctx, collection, card) {
+  const userId = ctx.from.id;
+  const ids = [];
+  if (collection.length >= 1) ids.push("first_card");
+  if (collection.length >= 10) ids.push("collector_10");
+  if (collection.length >= 50) ids.push("collector_50");
+  const rarityOrder = Object.keys(RARITIES);
+  if (rarityOrder.indexOf(card.rarity) >= rarityOrder.indexOf("Легендарная")) ids.push("legendary");
+  if (card.rarity === "Эксклюзив") ids.push("exclusive");
+
+  for (const id of ids) {
+    const a = ACHIEVEMENTS[id];
+    const added = await store.awardAchievement(userId, id, a.reward);
+    if (added) {
+      await ctx.reply(
+        `🏅 Достижение получено: ${a.name}\n${a.description}\nНаграда: +${money(a.reward)}` +
+        (a.title ? `\nОткрыт титул: «${a.title}»` : "") +
+        (a.background ? `\nОткрыт фон: «${a.background}»` : "")
+      );
+    }
+  }
+}
+
+async function sendProfile(ctx, userId, chatId) {
+  const user = await store.getUser(userId);
+  const collection = await store.getCollection(userId);
+  const totalValue = collection.reduce((sum, card) => sum + Number(card.value), 0);
+  const ranking = chatId ? await store.getGroupRanking(chatId, 1000) : [];
+  const place = ranking.findIndex(item => item.id === userId) + 1;
+  const placeText = chatId ? (place ? `#${place}` : "—") : "открой профиль в группе";
+  const name = user?.name || ctx.from.first_name || "Игрок";
+  const username = user?.username ? `@ ${user.username}`.replace("@ ", "@") : "не указан";
+  const achievementNames = (user?.achievements || []).map(id => ACHIEVEMENTS[id]?.name).filter(Boolean);
+  const text =
+    `👤 Профиль ${name}\n` +
+    `🔗 ${username}\n\n` +
+    `🏆 Место в группе: ${placeText}\n` +
+    `💰 Баланс: ${money(user?.balance)}\n` +
+    `📱 Карточек: ${collection.length}\n` +
+    `💎 Стоимость коллекции: ${money(totalValue)}\n` +
+    `🏅 Достижений: ${achievementNames.length}/${Object.keys(ACHIEVEMENTS).length}\n` +
+    `🎖 Титул: ${user?.title || "не выбран"}\n` +
+    `🖼 Фон: ${user?.profileBackground || "стандартный"}`;
+  try {
+    const photos = await ctx.api.getUserProfilePhotos(userId, { limit: 1 });
+    const sizes = photos.photos?.[0] || [];
+    const avatar = sizes[sizes.length - 1];
+    if (avatar?.file_id) {
+      await ctx.replyWithPhoto(avatar.file_id, { caption: text });
+      return;
+    }
+  } catch (error) {
+    console.warn("Could not load profile avatar:", error.message);
+  }
+  await ctx.reply(text);
+}
+
 bot.use(async (ctx, next) => {
   if (ctx.from) {
     await store.upsertUser(ctx.from);
@@ -84,52 +165,66 @@ bot.command("start", async (ctx) => {
     "Добро пожаловать в NCARD!\n\n" +
     "🎴 /ncard — получить карточку (кулдаун 8 минут)\n" +
     "👤 /nakk — профиль\n" +
+    "📚 /ncollection — моя коллекция\n" +
+    "🏅 /nachievements — достижения\n" +
     "🏆 /ntop — рейтинг этой группы\n" +
-    "⚙️ /nsettings — настройки профиля"
+    "⚙️ /nsettings — титулы и фоны профиля"
   );
 });
 
 bot.command("ncard", async (ctx) => {
-  const userId = ctx.from.id;
   const now = Date.now();
-  const wait = Math.max(0, await store.getCooldown(userId) - now);
-  if (wait > 0) {
-    await ctx.reply(`⏳ Следующую карточку можно получить через ${formatTime(wait)}.`);
+  const claim = await store.claimCooldown(ctx.from.id, now, CARD_COOLDOWN_MS);
+  if (!claim.ok) {
+    await ctx.reply(`⏳ Следующую карточку можно получить через ${formatTime(Math.max(0, claim.until - now))}.`);
     return;
   }
-
-  const card = weightedCard();
-  await store.addCard(userId, card);
-  await store.setCooldown(userId, now + CARD_COOLDOWN_MS);
-  const rarityColor = RARITIES[card.rarity]?.color || "💠";
-  await ctx.reply(
-    `🎴 **Новая карточка NCARD!**\n\n` +
-    `📱 ${card.name}\n` +
-    `🏭 Производитель: ${card.brand}\n` +
-    `${rarityColor} Редкость: ${card.rarity}\n` +
-    `💰 Стоимость: ${card.value.toLocaleString("ru-RU")} ₽\n\n` +
-    `⏳ Следующая карточка через 8 минут.`,
-    { parse_mode: "Markdown" }
-  );
+  try {
+    const card = weightedCard();
+    await store.addCard(ctx.from.id, card);
+    const collection = await store.getCollection(ctx.from.id);
+    const rarityColor = RARITIES[card.rarity]?.color || "💠";
+    await ctx.reply(
+      `🎴 **Новая карточка NCARD!**\n\n` +
+      `📱 ${card.name}\n🏭 Производитель: ${card.brand}\n` +
+      `${rarityColor} Редкость: ${card.rarity}\n💰 Стоимость: ${money(card.value)}\n\n` +
+      "⏳ Следующая карточка через 8 минут.",
+      { parse_mode: "Markdown" }
+    );
+    await checkAchievements(ctx, collection, card);
+  } catch (error) {
+    await store.setCooldown(ctx.from.id, now);
+    throw error;
+  }
 });
 
 bot.command(["nakk", "накк"], async (ctx) => {
-  const collection = await store.getCollection(ctx.from.id);
-  const totalValue = collection.reduce((sum, card) => sum + Number(card.value), 0);
-  const ranking = ctx.chat.type === "private"
-    ? []
-    : await store.getGroupRanking(ctx.chat.id, 1000);
-  const place = ranking.findIndex(item => item.id === ctx.from.id) + 1;
-  const placeText = ctx.chat.type === "private" ? "открой команду в группе" : (place ? `#${place}` : "—");
-  const name = [ctx.from.first_name, ctx.from.last_name].filter(Boolean).join(" ") || "игрок";
-  await ctx.reply(
-    `👤 Профиль ${name}\n\n` +
-    `🏆 Место в рейтинге группы: ${placeText}\n` +
-    `💰 Баланс: 0 ₽\n` +
-    `📱 Карточек: ${collection.length}\n` +
-    `💎 Стоимость коллекции: ${totalValue.toLocaleString("ru-RU")} ₽\n` +
-    `🎖 Достижений: 0`
+  await sendProfile(ctx, ctx.from.id, ctx.chat.type === "private" ? null : ctx.chat.id);
+});
+bot.hears(/^накк$/i, async (ctx) => {
+  if (!ctx.from) return;
+  await sendProfile(ctx, ctx.from.id, ctx.chat.type === "private" ? null : ctx.chat.id);
+});
+
+bot.command("ncollection", async (ctx) => {
+  const cards = await store.getCollection(ctx.from.id);
+  if (!cards.length) return ctx.reply("Коллекция пока пуста. Получи первую карточку командой /ncard.");
+  const counts = new Map();
+  for (const card of cards) counts.set(card.id, (counts.get(card.id) || 0) + 1);
+  const lines = [...counts.entries()].map(([id, count]) => {
+    const card = cards.find(item => item.id === id);
+    return `• ${card.name} — ${card.rarity} ×${count}`;
+  });
+  await ctx.reply(`📚 Твоя коллекция (${cards.length} карточек)\n\n${lines.slice(0, 40).join("\n")}${lines.length > 40 ? "\n…и другие." : ""}`);
+});
+
+bot.command("nachievements", async (ctx) => {
+  const user = await store.getUser(ctx.from.id);
+  const owned = new Set(user?.achievements || []);
+  const lines = Object.entries(ACHIEVEMENTS).map(([id, a]) =>
+    `${owned.has(id) ? "✅" : "🔒"} ${a.name} — ${a.description} (+${money(a.reward)})`
   );
+  await ctx.reply("🏅 Достижения NCARD\n\n" + lines.join("\n"));
 });
 
 bot.command("ntop", async (ctx) => {
@@ -145,8 +240,59 @@ bot.command("ntop", async (ctx) => {
   await ctx.reply("🏆 Рейтинг NCARD этой группы\n\n" + lines.join("\n"));
 });
 
+function settingsKeyboard(user) {
+  const keyboard = new InlineKeyboard();
+  keyboard.text(`🎖 Титул: ${user.title || "нет"}`, "settings:titles").row();
+  keyboard.text(`🖼 Фон: ${user.profileBackground || "стандартный"}`, "settings:backgrounds");
+  return keyboard;
+}
+
 bot.command("nsettings", async (ctx) => {
-  await ctx.reply("⚙️ Настройки профиля\nСистема титулов и фонов будет подключена вместе с достижениями.");
+  const user = await store.getUser(ctx.from.id);
+  await ctx.reply("⚙️ Настройки профиля. Здесь можно выбрать только открытые достижения.", {
+    reply_markup: settingsKeyboard(user)
+  });
+});
+
+bot.callbackQuery(/^settings:(titles|backgrounds)$/, async (ctx) => {
+  const user = await store.getUser(ctx.from.id);
+  const type = ctx.match[1];
+  const owned = new Set(user?.achievements || []);
+  const keyboard = new InlineKeyboard();
+  if (type === "titles") {
+    keyboard.text("Без титула", "equip:title:none").row();
+    for (const [id, a] of Object.entries(ACHIEVEMENTS)) {
+      if (a.title && owned.has(id)) keyboard.text(a.title, `equip:title:${id}`).row();
+    }
+  } else {
+    keyboard.text("Стандартный фон", "equip:background:none").row();
+    for (const [id, a] of Object.entries(ACHIEVEMENTS)) {
+      if (a.background && owned.has(id)) keyboard.text(a.background, `equip:background:${id}`).row();
+    }
+  }
+  await ctx.answerCallbackQuery();
+  await ctx.reply(type === "titles" ? "Выбери открытый титул:" : "Выбери открытый фон:", { reply_markup: keyboard });
+});
+
+bot.callbackQuery(/^equip:(title|background):(none|[a-z0-9_]+)$/, async (ctx) => {
+  const [, type, id] = ctx.match;
+  const field = type === "title" ? "title" : "profileBackground";
+  const achievement = id === "none" ? null : ACHIEVEMENTS[id];
+  const user = await store.getUser(ctx.from.id);
+  if (id !== "none") {
+    const unlocked = (user?.achievements || []).includes(id);
+    const item = achievement?.[type];
+    if (!unlocked || !item) {
+      await ctx.answerCallbackQuery({ text: "Этот элемент ещё не открыт.", show_alert: true });
+      return;
+    }
+    await store.setProfileField(ctx.from.id, field, item);
+  } else {
+    await store.setProfileField(ctx.from.id, field, null);
+  }
+  await ctx.answerCallbackQuery({ text: "Профиль обновлён." });
+  const updated = await store.getUser(ctx.from.id);
+  await ctx.reply("Настройки сохранены.", { reply_markup: settingsKeyboard(updated) });
 });
 
 bot.command("nadmin", async (ctx) => {
@@ -156,39 +302,35 @@ bot.command("nadmin", async (ctx) => {
     .text("📊 Статистика", "admin:stats")
     .row()
     .text("📚 Каталог", "admin:catalog");
-  await ctx.reply(
-    `🔐 Панель владельца\nВладелец: @${OWNER_USERNAME}\nID: ${OWNER_ID}`,
-    { reply_markup: keyboard }
-  );
+  await ctx.reply(`🔐 Панель владельца\nВладелец: @${OWNER_USERNAME}\nID: ${OWNER_ID}`, { reply_markup: keyboard });
 });
 
-bot.callbackQuery(/^admin:/, async (ctx) => {
+bot.callbackQuery(/^admin:(stats|catalog)$/, async (ctx) => {
   if (!isOwner(ctx) || ctx.chat?.type !== "private") {
     await ctx.answerCallbackQuery({ text: "Доступ запрещён", show_alert: true });
     return;
   }
-  const action = ctx.callbackQuery.data.split(":")[1];
+  const action = ctx.match[1];
+  await ctx.answerCallbackQuery();
   if (action === "stats") {
     const stats = await store.getStats();
-    await ctx.answerCallbackQuery();
     await ctx.reply(
-      `📊 Статистика NCARD\nИгроков: ${stats.users}\nВыдано карточек: ${stats.cards}\nКарточек в каталоге: ${CARDS.length}\nХранилище: ${store.persistent ? "PostgreSQL" : "временная память"}`
+      `📊 Статистика NCARD\nИгроков: ${stats.users}\nВыдано карточек: ${stats.cards}\nСуммарный баланс: ${money(stats.balance)}\nКарточек в каталоге: ${CARDS.length}\nХранилище: ${store.persistent ? "PostgreSQL" : "временная память"}`
     );
-  } else if (action === "catalog") {
-    await ctx.answerCallbackQuery();
-    await ctx.reply(
-      `📚 В каталоге ${CARDS.length} стартовых карточек. Полный каталог из 110 моделей будет добавлен после проверки точных моделей и официальных изображений.`
-    );
+  } else {
+    await ctx.reply(`📚 В каталоге сейчас ${CARDS.length} моделей. Полный список из 110 и проверенные официальные изображения ещё не добавлены.`);
   }
+});
+
+bot.catch((error) => {
+  console.error("NCARD Telegram handler error:", error);
 });
 
 app.get("/", (_req, res) => res.status(200).send("NCARD Telegram bot is running."));
 app.get("/health", (_req, res) => res.json({ ok: true, storage: store.persistent ? "postgres" : "memory" }));
 
 app.post(`/telegram/${WEBHOOK_SECRET}`, async (req, res) => {
-  if (req.get("X-Telegram-Bot-Api-Secret-Token") !== WEBHOOK_SECRET) {
-    return res.sendStatus(401);
-  }
+  if (req.get("X-Telegram-Bot-Api-Secret-Token") !== WEBHOOK_SECRET) return res.sendStatus(401);
   res.sendStatus(200);
   try {
     await bot.handleUpdate(req.body);
