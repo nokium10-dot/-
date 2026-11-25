@@ -5,7 +5,8 @@
   "description": "NCARD Telegram phone card collection game",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "backup": "node backup.js"
   },
   "engines": {
     "node": ">=20"
