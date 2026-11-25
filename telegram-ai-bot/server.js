@@ -181,7 +181,12 @@ bot.command("ncard", async (ctx) => {
   }
   try {
     const card = weightedCard();
-    await store.addCard(ctx.from.id, card);
+    try {
+      await store.addCard(ctx.from.id, card);
+    } catch (error) {
+      await store.setCooldown(ctx.from.id, now);
+      throw error;
+    }
     const collection = await store.getCollection(ctx.from.id);
     const rarityColor = RARITIES[card.rarity]?.color || "💠";
     await ctx.reply(
@@ -193,7 +198,6 @@ bot.command("ncard", async (ctx) => {
     );
     await checkAchievements(ctx, collection, card);
   } catch (error) {
-    await store.setCooldown(ctx.from.id, now);
     throw error;
   }
 });
@@ -216,6 +220,83 @@ bot.command("ncollection", async (ctx) => {
     return `• ${card.name} — ${card.rarity} ×${count}`;
   });
   await ctx.reply(`📚 Твоя коллекция (${cards.length} карточек)\n\n${lines.slice(0, 40).join("\n")}${lines.length > 40 ? "\n…и другие." : ""}`);
+});
+
+const RARITY_VALUES = {
+  "Обычная": 100, "Необычная": 300, "Редкая": 900,
+  "Эпическая": 2500, "Легендарная": 8000, "Мифическая": 20000,
+  "Древняя": 50000, "Божественная": 100000, "Секретная": 250000,
+  "Эксклюзив": 1000000
+};
+
+bot.command("nallup", async (ctx) => {
+  const cards = await store.getCollection(ctx.from.id);
+  const counts = new Map();
+  for (const card of cards) counts.set(card.rarity, (counts.get(card.rarity) || 0) + 1);
+  const keyboard = new InlineKeyboard();
+  Object.keys(RARITIES).forEach((rarity, index) => {
+    const count = counts.get(rarity) || 0;
+    if (count > 0 && index < Object.keys(RARITIES).length - 1) {
+      keyboard.text(`${RARITIES[rarity].color} ${rarity} ×${count}`, `upgrade:select:${index}`).row();
+    }
+  });
+  if (!keyboard.inline_keyboard.length) {
+    await ctx.reply("У тебя пока нет карточек, которые можно улучшить.");
+    return;
+  }
+  await ctx.reply("⚒️ Выбери редкость. Будут обработаны ВСЕ карточки этой редкости. Успех — 50%, при неудаче карточка теряется.", { reply_markup: keyboard });
+});
+
+bot.callbackQuery(/^upgrade:select:(\\d+)$/, async (ctx) => {
+  const index = Number(ctx.match[1]);
+  const rarities = Object.keys(RARITIES);
+  const rarity = rarities[index];
+  const cards = await store.getCollection(ctx.from.id);
+  const count = cards.filter(card => card.rarity === rarity).length;
+  if (!rarity || !count || index >= rarities.length - 1) {
+    await ctx.answerCallbackQuery({ text: "Эти карточки уже недоступны для улучшения.", show_alert: true });
+    return;
+  }
+  const next = rarities[index + 1];
+  const keyboard = new InlineKeyboard()
+    .text("✅ Подтвердить", `upgrade:confirm:${index}`)
+    .text("❌ Отмена", "upgrade:cancel");
+  await ctx.answerCallbackQuery();
+  await ctx.reply(
+    `⚠️ Улучшить все карточки редкости «${rarity}»?\nКоличество: ${count}\n\n` +
+    `При успехе (50%) карточка станет «${next}» и её стоимость будет ${money(RARITY_VALUES[next])}.\n` +
+    "При неудаче карточка будет потеряна. Отменить операцию после подтверждения нельзя.",
+    { reply_markup: keyboard }
+  );
+});
+
+bot.callbackQuery("upgrade:cancel", async (ctx) => {
+  await ctx.answerCallbackQuery({ text: "Улучшение отменено." });
+  await ctx.editMessageText("❌ Массовое улучшение отменено.");
+});
+
+bot.callbackQuery(/^upgrade:confirm:(\\d+)$/, async (ctx) => {
+  const index = Number(ctx.match[1]);
+  const rarities = Object.keys(RARITIES);
+  const rarity = rarities[index];
+  const next = rarities[index + 1];
+  if (!rarity || !next) {
+    await ctx.answerCallbackQuery({ text: "Неверная редкость.", show_alert: true });
+    return;
+  }
+  await ctx.answerCallbackQuery({ text: "Начинаю улучшение..." });
+  const results = await store.massUpgrade(ctx.from.id, rarity, next, RARITY_VALUES[next], 0.5);
+  if (!results.length) {
+    await ctx.editMessageText("Карточек выбранной редкости больше нет.");
+    return;
+  }
+  const lines = results.map(item =>
+    `${item.success ? "✅" : "❌"} ${item.name}${item.success ? ` → ${item.rarity}` : " — карточка потеряна"}`
+  );
+  const successes = results.filter(item => item.success).length;
+  await ctx.editMessageText(
+    `⚒️ Улучшение завершено\nУспешно: ${successes}\nПотеряно: ${results.length - successes}\n\n${lines.join("\n")}`
+  );
 });
 
 bot.command("nachievements", async (ctx) => {
