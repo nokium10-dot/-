@@ -56,6 +56,19 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Add the mouth to Pip (renderer, moods, toggle)
+        run: |
+          # the mouth is built into the C face renderer (ui/face.c) and the mood logic (ui/pip.c), not drawn on top
+          cp pip-ru2/mouth/face_mouth.inc pip-ru2/mouth/mouth_defs.h pip-src/ui/
+          if (cd pip-src && patch -p1 --dry-run -F2 -s < "$GITHUB_WORKSPACE/pip-ru2/mouth/mouth.patch"); then
+            (cd pip-src && patch -p1 -F2 -s < "$GITHUB_WORKSPACE/pip-ru2/mouth/mouth.patch")
+            find pip-src -name '*.orig' -delete
+            echo "mouth patch applied"
+          else
+            echo "::warning::The mouth patch does not fit this Pip-KeyPet revision ($PIP_SRC_REF); building without a mouth"
+            rm -f pip-src/ui/face_mouth.inc pip-src/ui/mouth_defs.h
+          fi
+
       - name: Build the original simulator (LVGL -> WebAssembly)
         run: |
           emcmake cmake -S pip-src/sim -B pip-src/build-web -G Ninja
@@ -120,7 +133,7 @@ jobs:
           keytool -genkeypair -v -keystore pip-ru2/signing/pipru2.jks -storetype PKCS12 \
             -alias pipru -keyalg RSA -keysize 2048 -validity 10000 \
             -storepass pipru-local -keypass pipru-local \
-            -dname "CN=Pip RU 2, O=Pip, C=RU"
+            -dname "CN=Pip RU, O=Pip, C=RU"
 
       - name: Use generated signing key
         if: env.HAS_SIGNING_SECRETS != 'true'

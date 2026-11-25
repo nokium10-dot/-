@@ -40,6 +40,7 @@ patch("https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/", "./three/addon
 css = (web / "mobile.css").read_text(encoding="utf-8")
 html = (web / "mobile.html").read_text(encoding="utf-8")
 js = (web / "mobile.js").read_text(encoding="utf-8")
+js += "\n" + (web / "mouth.js").read_text(encoding="utf-8")   # тумблер «Рот»
 patch("</style>", css + "\n</style>", "css")
 patch('<script type="importmap">', html + "\n<script>\n" + js + "\n</script>\n\n" + '<script type="importmap">', "markup")
 
@@ -114,7 +115,16 @@ const moodIndex = name => {
   for (let i = 0; i < M._sim_mood_count(); i++) if (M.UTF8ToString(M._sim_mood_name(i)) === name) return i;
   return -1;
 };
+/* рот Пипа: тумблер из «Настроек», состояние хранится на телефоне (функция 7 = PIP_F_MOUTH из патча mouth/) */
+if (M._sim_feature) { try { if (localStorage.getItem('pip.mouth') === '0') M._sim_feature(7, 0); } catch (_) { /* без хранилища */ } }
 window.pipApi = {
+  mouth: on => {
+    if (!M._sim_feature) return false;
+    if (on === undefined) return !!M._sim_feature_on(7);
+    M._sim_feature(7, on ? 1 : 0);
+    try { localStorage.setItem('pip.mouth', on ? '1' : '0'); } catch (_) { /* без хранилища */ }
+    return !!on;
+  },
   feed: () => M._sim_action(0),
   play: () => M._sim_action(1),
   pet: () => document.getElementById('pet').onclick(),
@@ -131,6 +141,7 @@ window.pipApi = {
 };
 window.sim = { M, tgt, cur, dev, advance };
 document.documentElement.classList.add('pip-ready');
+dispatchEvent(new Event('pip-mouth-sync'));
 if (window.PipAndroid && window.PipAndroid.onReady) window.PipAndroid.onReady();""", "bridge")
 
 out = Path(args.out)
