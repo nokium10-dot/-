@@ -233,6 +233,18 @@ const RARITY_VALUES = {
   "Эксклюзив": 1000000
 };
 
+const UPGRADE_CHANCES = {
+  "Обычная": 50,
+  "Необычная": 40,
+  "Редкая": 30,
+  "Эпическая": 22,
+  "Легендарная": 15,
+  "Мифическая": 10,
+  "Древняя": 7,
+  "Божественная": 5,
+  "Секретная": 3
+};
+
 bot.command("nallup", async (ctx) => {
   const cards = await store.getCollection(ctx.from.id);
   const counts = new Map();
@@ -240,7 +252,7 @@ bot.command("nallup", async (ctx) => {
   const keyboard = new InlineKeyboard();
   Object.keys(RARITIES).forEach((rarity, index) => {
     const count = counts.get(rarity) || 0;
-    if (count >= 3 && index < Object.keys(RARITIES).length - 1) {
+    if (count >= 1 && index < Object.keys(RARITIES).length - 1) {
       keyboard.text(`${RARITIES[rarity].color} ${rarity} ×${count}`, `upgrade:select:${index}`).row();
     }
   });
@@ -248,7 +260,7 @@ bot.command("nallup", async (ctx) => {
     await ctx.reply("У тебя пока нет карточек, которые можно улучшить.");
     return;
   }
-  await ctx.reply("⚒️ Обмен карточек без случайности: каждые 3 карточки одной редкости превращаются в 1 карточку следующей редкости. Остаток меньше трёх сохраняется.", { reply_markup: keyboard });
+  await ctx.reply("⚒️ Выбери редкость. Каждая карточка будет отдельно проверена на шанс улучшения; неудачные попытки сохранят карточки без изменений.", { reply_markup: keyboard });
 });
 
 bot.callbackQuery(/^upgrade:select:(\d+)$/, async (ctx) => {
@@ -257,19 +269,21 @@ bot.callbackQuery(/^upgrade:select:(\d+)$/, async (ctx) => {
   const rarity = rarities[index];
   const cards = await store.getCollection(ctx.from.id);
   const count = cards.filter(card => card.rarity === rarity).length;
-  if (!rarity || count < 3 || index >= rarities.length - 1) {
+  if (!rarity || count < 1 || index >= rarities.length - 1) {
     await ctx.answerCallbackQuery({ text: "Эти карточки уже недоступны для улучшения.", show_alert: true });
     return;
   }
   const next = rarities[index + 1];
+  const chance = UPGRADE_CHANCES[rarity];
   const keyboard = new InlineKeyboard()
-    .text("✅ Подтвердить", `upgrade:confirm:${index}`)
+    .text("✅ Проверить шанс", `upgrade:confirm:${index}`)
     .text("❌ Отмена", "upgrade:cancel");
   await ctx.answerCallbackQuery();
   await ctx.reply(
-    `⚠️ Обменять карточки редкости «${rarity}»?\nКоличество: ${count}\n\n` +
-    `Каждые 3 карточки превращаются в 1 «${next}» стоимостью ${money(RARITY_VALUES[next])}.\n` +
-    `Будет создано улучшенных карточек: ${Math.floor(count / 3)}. Остаток ${count % 3} карточек сохранится. Случайности нет.`,
+    `⚒️ Улучшение редкости «${rarity}» → «${next}»\n` +
+    `Карточек для попытки: ${count}\n` +
+    `Шанс для каждой карточки: ${chance}%\n\n` +
+    `Каждый смартфон проверяется отдельно. При успехе он станет «${next}» стоимостью ${money(RARITY_VALUES[next])}; при неудаче останется прежней редкости. Карточки не расходуются.`,
     { reply_markup: keyboard }
   );
 });
@@ -289,14 +303,17 @@ bot.callbackQuery(/^upgrade:confirm:(\d+)$/, async (ctx) => {
     return;
   }
   await ctx.answerCallbackQuery({ text: "Начинаю улучшение..." });
-  const result = await store.massUpgrade(ctx.from.id, rarity, next, RARITY_VALUES[next]);
-  if (!result.upgraded) {
-    await ctx.editMessageText("Для обмена нужно минимум 3 карточки выбранной редкости.");
+  const result = await store.massUpgrade(
+    ctx.from.id, rarity, next, RARITY_VALUES[next], UPGRADE_CHANCES[rarity]
+  );
+  if (!result.attempted) {
+    await ctx.editMessageText("Карточек выбранной редкости больше нет.");
     return;
   }
   const lines = result.results.map(item => `✅ ${item.name} → ${item.rarity}`);
   await ctx.editMessageText(
-    `⚒️ Обмен завершён\nУлучшено: ${result.upgraded}\nИспользовано карточек: ${result.consumed}\nОсталось прежней редкости: ${result.remaining}\n\n${lines.join("\n")}`
+    `⚒️ Проверка завершена\nПроверено карточек: ${result.attempted}\nШанс каждой: ${result.chance}%\nУлучшено: ${result.upgraded}\nНе улучшилось: ${result.failed}\nКарточки не расходовались.\n\n` +
+    (lines.length ? lines.join("\n") : "В этот раз ни одна карточка не улучшилась.")
   );
 });
 
