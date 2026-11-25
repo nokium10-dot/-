@@ -58,7 +58,10 @@ public class MainActivity extends Activity {
             c.restore();postInvalidateDelayed(16);
         }
         void drawRoom(){
-            if(rooms[room]==null)try{rooms[room]=BitmapFactory.decodeStream(getAssets().open("rooms/room"+room+".png"));}catch(Exception ignored){}
+            if(rooms[room]==null){
+                for(int i=0;i<rooms.length;i++)if(i!=room&&rooms[i]!=null){rooms[i].recycle();rooms[i]=null;}
+                try{rooms[room]=BitmapFactory.decodeStream(getAssets().open("rooms/room"+room+".png"));}catch(Exception ignored){}
+            }
             if(rooms[room]!=null){p.setFilterBitmap(false);c.drawBitmap(rooms[room],null,new Rect(0,0,960,540),p);}
             else {box(0,0,960,540,Color.rgb(22,25,37));box(30,55,900,440,Color.rgb(44,48,62));}
             stroke(28,50,904,450,Color.rgb(150,142,128),5);
@@ -120,7 +123,7 @@ public class MainActivity extends Activity {
         }
         @Override public boolean onTouchEvent(MotionEvent e){
             float x=e.getX()/scaleX,y=e.getY()/scaleY;
-            if(e.getAction()==MotionEvent.ACTION_DOWN){if(talking){interact();return true;}if(showHelp){showHelp=false;return true;}if(x>700&&y>390){interact();return true;}joyX=(x-180)/130f;joyY=(y-340)/130f;float len=(float)Math.hypot(joyX,joyY);if(len>1){joyX/=len;joyY/=len;}return true;}
+            if(e.getAction()==MotionEvent.ACTION_DOWN){if(talking)return true;if(showHelp){showHelp=false;return true;}if(x>700&&y>390)return true;joyX=(x-180)/130f;joyY=(y-340)/130f;float len=(float)Math.hypot(joyX,joyY);if(len>1){joyX/=len;joyY/=len;}return true;}
             if(e.getAction()==MotionEvent.ACTION_MOVE){if(x<560){joyX=Math.max(-1,Math.min(1,(x-180)/130f));joyY=Math.max(-1,Math.min(1,(y-340)/130f));}return true;}
             if(e.getAction()==MotionEvent.ACTION_UP){joyX=joyY=0;if(x>700&&y>390)interact();else if(y<80&&x>850)save();return true;}return true;
         }
