@@ -77,6 +77,11 @@ async function init() {
       PRIMARY KEY(chat_id, telegram_id)
     );
     CREATE INDEX IF NOT EXISTS ncard_group_rank_idx ON ncard_group_members(chat_id, telegram_id);
+    CREATE TABLE IF NOT EXISTS ncard_card_assets (
+      card_key TEXT PRIMARY KEY,
+      telegram_file_id TEXT NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
     CREATE TABLE IF NOT EXISTS ncard_user_blocks (
       telegram_id BIGINT PRIMARY KEY REFERENCES ncard_users(telegram_id) ON DELETE CASCADE,
       reason TEXT NOT NULL DEFAULT '',
@@ -329,6 +334,32 @@ async function setProfileField(userId, field, value) {
   await pool.query(`UPDATE ncard_users SET ${column}=$2,updated_at=NOW() WHERE telegram_id=$1`, [String(userId), value]);
 }
 
+async function setCardPhoto(cardKey, fileId) {
+  if (!pool) {
+    memory.cardAssets ||= new Map();
+    memory.cardAssets.set(cardKey, fileId);
+    return;
+  }
+  await pool.query(
+    "INSERT INTO ncard_card_assets(card_key,telegram_file_id) VALUES($1,$2) ON CONFLICT(card_key) DO UPDATE SET telegram_file_id=EXCLUDED.telegram_file_id,updated_at=NOW()",
+    [cardKey, fileId]
+  );
+}
+
+async function getCardPhoto(cardKey) {
+  if (!pool) return memory.cardAssets?.get(cardKey) || null;
+  const r = await pool.query("SELECT telegram_file_id FROM ncard_card_assets WHERE card_key=$1", [cardKey]);
+  return r.rowCount ? r.rows[0].telegram_file_id : null;
+}
+
+async function clearCardPhoto(cardKey) {
+  if (!pool) {
+    memory.cardAssets?.delete(cardKey);
+    return;
+  }
+  await pool.query("DELETE FROM ncard_card_assets WHERE card_key=$1", [cardKey]);
+}
+
 async function isBlocked(userId) {
   if (!pool) return memory.blockedUsers.has(Number(userId));
   const r = await pool.query("SELECT 1 FROM ncard_user_blocks WHERE telegram_id=$1", [String(userId)]);
@@ -380,6 +411,6 @@ async function close() {
 module.exports = {
   init, upsertUser, getUser, recordGroupMember, getCooldown, claimCooldown,
   setCooldown, addCard, getCollection, getGroupRanking, addBalance,
-  awardAchievement, setProfileField, massUpgrade, isBlocked, setBlocked, getStats, logAdminGrant, close,
+  awardAchievement, setProfileField, massUpgrade, isBlocked, setBlocked, setCardPhoto, getCardPhoto, clearCardPhoto, getStats, logAdminGrant, close,
   persistent: Boolean(pool)
 };
