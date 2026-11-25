@@ -245,23 +245,25 @@ async function getGroupRanking(chatId, limit = 10) {
   }));
 }
 
-async function massUpgrade(userId, rarity, nextRarity, nextValue) {
+async function massUpgrade(userId, rarity, nextRarity, nextValue, chancePercent) {
+  const chance = Math.max(0, Math.min(100, Number(chancePercent) || 0));
   if (!pool) {
     const owned = memory.cards.filter(c => c.userId === Number(userId) && c.rarity === rarity);
-    const groups = Math.floor(owned.length / 3);
     const results = [];
-    for (let i = 0; i < groups; i++) {
-      const trio = owned.slice(i * 3, i * 3 + 3);
-      const upgraded = trio[0];
-      upgraded.rarity = nextRarity;
-      upgraded.value = nextValue;
-      for (const consumed of trio.slice(1)) {
-        const index = memory.cards.indexOf(consumed);
-        if (index >= 0) memory.cards.splice(index, 1);
+    for (const card of owned) {
+      if (Math.random() * 100 < chance) {
+        card.rarity = nextRarity;
+        card.value = nextValue;
+        results.push({ name: card.name, rarity: nextRarity });
       }
-      results.push({ name: upgraded.name, rarity: nextRarity });
     }
-    return { upgraded: groups, consumed: groups * 3, remaining: owned.length % 3, results };
+    return {
+      attempted: owned.length,
+      upgraded: results.length,
+      failed: owned.length - results.length,
+      chance,
+      results
+    };
   }
 
   const client = await pool.connect();
@@ -271,26 +273,22 @@ async function massUpgrade(userId, rarity, nextRarity, nextValue) {
       "SELECT id,model FROM ncard_cards WHERE telegram_id=$1 AND rarity=$2 ORDER BY id FOR UPDATE",
       [String(userId), rarity]
     );
-    const groups = Math.floor(selected.rows.length / 3);
     const results = [];
-    for (let i = 0; i < groups; i++) {
-      const trio = selected.rows.slice(i * 3, i * 3 + 3);
-      const keep = trio[0];
-      await client.query(
-        "UPDATE ncard_cards SET rarity=$2,value=$3 WHERE id=$1",
-        [keep.id, nextRarity, nextValue]
-      );
-      await client.query(
-        "DELETE FROM ncard_cards WHERE id = ANY($1::bigint[])",
-        [trio.slice(1).map(card => card.id)]
-      );
-      results.push({ name: keep.model, rarity: nextRarity });
+    for (const card of selected.rows) {
+      if (Math.random() * 100 < chance) {
+        await client.query(
+          "UPDATE ncard_cards SET rarity=$2,value=$3 WHERE id=$1",
+          [card.id, nextRarity, nextValue]
+        );
+        results.push({ name: card.model, rarity: nextRarity });
+      }
     }
     await client.query("COMMIT");
     return {
-      upgraded: groups,
-      consumed: groups * 3,
-      remaining: selected.rows.length - groups * 3,
+      attempted: selected.rows.length,
+      upgraded: results.length,
+      failed: selected.rows.length - results.length,
+      chance,
       results
     };
   } catch (error) {
