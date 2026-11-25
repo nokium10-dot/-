@@ -1,0 +1,297 @@
+# -*- coding: utf-8 -*-
+# Delayed Message — AyuGram / exteraGram Android
+# Author: pirtech
+
+import time
+from typing import Any, Dict, List
+
+from base_plugin import BasePlugin, MenuItemData, MenuItemType
+from client_utils import GLOBAL_QUEUE, get_selected_account, run_on_queue, send_text
+from ui.bulletin import BulletinHelper
+from ui.settings import Divider, EditText, Header, Input, Selector, Text
+
+
+__id__ = "delayed_message"
+__name__ = "Delayed Message"
+__description__ = "Однократная отправка сообщения в выбранный чат после задержки."
+__author__ = "pirtech"
+__version__ = "1.0.0"
+__icon__ = "exteraPlugins/1"
+__app_version__ = ">=12.5.1"
+__sdk_version__ = ">=1.4.4.3"
+__category__ = ["chats", "tools"]
+
+
+class DelayedMessagePlugin(BasePlugin):
+    def on_plugin_load(self):
+        self._loaded = True
+        self._menu_item_id = self.add_menu_item(
+            MenuItemData(
+                menu_type=MenuItemType.CHAT_ACTION_MENU,
+                text="Выбрать чат для Delayed Message",
+                subtext="Назначить этот чат для отложенного сообщения",
+                icon="msg_schedule",
+                on_click=self._on_chat_menu_click,
+                priority=5,
+            )
+        )
+        self._restore_task()
+        self.logger.info("Delayed Message loaded")
+
+    def on_plugin_unload(self):
+        # The task is persisted. It will be restored when the plugin loads again.
+        self._loaded = False
+
+    def create_settings(self) -> List[Any]:
+        target_name = self.get_setting("target_chat_name", "")
+        status = self.get_setting("task_status", "Не запущено")
+        waiting = self.get_setting("waiting_for_chat", False)
+
+        if waiting:
+            select_hint = "Режим выбора включён: открой чат и нажми пункт плагина в меню чата."
+        elif target_name:
+            select_hint = "Сейчас выбран чат: " + target_name
+        else:
+            select_hint = "Нажми, затем открой нужный чат и выбери пункт плагина в меню чата."
+
+        return [
+            Header(text="Delayed Message"),
+            Text(
+                text="Выбрать чат",
+                subtext=select_hint,
+                icon="msg_search",
+                accent=True,
+                on_click=self._begin_chat_selection,
+            ),
+            Divider(text="Сообщение"),
+            EditText(
+                key="message_text",
+                hint="Текст сообщения",
+                default=self.get_setting("message_text", ""),
+                multiline=True,
+                max_length=4096,
+            ),
+            Input(
+                key="delay_value",
+                text="Задержка",
+                default=self.get_setting("delay_value", "30"),
+                subtext="Укажи целое число больше нуля.",
+                icon="msg_timer",
+            ),
+            Selector(
+                key="delay_unit",
+                text="Единица времени",
+                default=self.get_setting("delay_unit", 1),
+                items=["Секунды", "Минуты", "Часы"],
+                icon="msg_clock",
+            ),
+            Divider(text="Управление"),
+            Text(
+                text="Запустить",
+                subtext="Начать отсчёт с момента нажатия",
+                icon="msg_play",
+                accent=True,
+                on_click=self._start_task,
+            ),
+            Text(
+                text="Отменить",
+                subtext="Остановить текущую отложенную отправку",
+                icon="msg_cancel",
+                red=True,
+                on_click=self._cancel_task,
+            ),
+            Text(
+                text="Состояние: " + status,
+                icon="msg_info",
+            ),
+            Text(
+                text=(
+                    "Отправка выполняется один раз. Если интернет пропадёт, "
+                    "сообщение передаётся штатной очереди Telegram. Если Android "
+                    "полностью завершит AyuGram до срока отправки, задача продолжится "
+                    "при следующем запуске приложения."
+                ),
+                icon="msg_help",
+            ),
+        ]
+
+    def _begin_chat_selection(self, view):
+        self.set_setting("waiting_for_chat", True)
+        BulletinHelper.show_info(
+            "Открой нужный чат и нажми «Выбрать чат для Delayed Message» "
+            "в меню действий чата."
+        )
+
+    @staticmethod
+    def _read_value(obj, name):
+        if obj is None:
+            return None
+        try:
+            value = getattr(obj, name)
+            return value() if callable(value) else value
+        except Exception:
+            return None
+
+    def _on_chat_menu_click(self, context: Dict[str, Any]):
+        if not self.get_setting("waiting_for_chat", False):
+            BulletinHelper.show_info(
+                "Сначала открой настройки плагина и нажми «Выбрать чат»."
+            )
+            return
+
+        context = context or {}
+        dialog_id = (
+            context.get("dialog_id")
+            or context.get("peer_id")
+            or context.get("chat_id")
+        )
+        chat = context.get("chat")
+        user = context.get("user")
+
+        if not dialog_id and chat is not None:
+            dialog_id = self._read_value(chat, "dialog_id")
+            if not dialog_id:
+                dialog_id = self._read_value(chat, "id")
+            if not dialog_id:
+                dialog_id = self._read_value(chat, "getId")
+
+        if not dialog_id and user is not None:
+            dialog_id = self._read_value(user, "id")
+
+        try:
+            dialog_id = int(dialog_id)
+        except (TypeError, ValueError):
+            BulletinHelper.show_error("Не удалось определить ID чата. Открой именно переписку.")
+            return
+
+        account = context.get("account")
+        try:
+            account = int(account) if account is not None else int(get_selected_account())
+        except Exception:
+            account = int(get_selected_account())
+
+        name = ""
+        if chat is not None:
+            name = self._read_value(chat, "title") or ""
+        if not name and user is not None:
+            first = self._read_value(user, "first_name") or ""
+            last = self._read_value(user, "last_name") or ""
+            name = (str(first) + " " + str(last)).strip()
+        if not name:
+            name = "Чат " + str(dialog_id)
+
+        self.set_setting("target_dialog_id", str(dialog_id))
+        self.set_setting("target_account", account)
+        self.set_setting("target_chat_name", str(name))
+        self.set_setting("waiting_for_chat", False)
+        BulletinHelper.show_success("Выбран чат: " + str(name))
+
+    def _start_task(self, view):
+        dialog_id = self.get_setting("target_dialog_id", "")
+        message = self.get_setting("message_text", "")
+        raw_value = self.get_setting("delay_value", "30")
+        unit = int(self.get_setting("delay_unit", 1))
+
+        if not dialog_id:
+            BulletinHelper.show_error("Сначала выбери чат.")
+            return
+        if not isinstance(message, str) or not message.strip():
+            BulletinHelper.show_error("Введи текст сообщения.")
+            return
+
+        try:
+            value = int(str(raw_value).strip())
+            if value < 1:
+                raise ValueError()
+        except Exception:
+            BulletinHelper.show_error("Задержка должна быть целым числом больше нуля.")
+            return
+
+        multipliers = {0: 1, 1: 60, 2: 3600}
+        seconds = value * multipliers.get(unit, 60)
+        if seconds > 31536000:
+            BulletinHelper.show_error("Максимальная задержка — один год.")
+            return
+
+        token = str(time.time_ns())
+        due_at = time.time() + seconds
+
+        # Save everything before scheduling so the task can be restored after restart.
+        self.set_setting("task_token", token)
+        self.set_setting("task_chat_id", str(dialog_id))
+        self.set_setting("task_account", int(self.get_setting("target_account", get_selected_account())))
+        self.set_setting("task_message", message.strip())
+        self.set_setting("task_due_at", str(due_at))
+        self.set_setting("task_status", "Ожидание")
+
+        self._schedule_delivery(token, due_at)
+        BulletinHelper.show_success("Таймер запущен.")
+
+    def _cancel_task(self, view):
+        self.set_setting("task_token", "")
+        self.set_setting("task_due_at", "")
+        self.set_setting("task_message", "")
+        self.set_setting("task_chat_id", "")
+        self.set_setting("task_status", "Отменено")
+        BulletinHelper.show_info("Отложенная отправка отменена.")
+
+    def _restore_task(self):
+        token = self.get_setting("task_token", "")
+        due_raw = self.get_setting("task_due_at", "")
+        if not token or not due_raw:
+            return
+        try:
+            due_at = float(due_raw)
+        except (TypeError, ValueError):
+            self.set_setting("task_status", "Ошибка сохранённого таймера")
+            return
+        self._schedule_delivery(token, due_at)
+
+    def _schedule_delivery(self, token, due_at):
+        delay_ms = max(0, int((due_at - time.time()) * 1000))
+        run_on_queue(
+            lambda: self._deliver_if_current(token),
+            GLOBAL_QUEUE,
+            delay_ms,
+        )
+
+    def _deliver_if_current(self, token):
+        if not getattr(self, "_loaded", False):
+            return
+        if self.get_setting("task_token", "") != token:
+            return
+
+        try:
+            due_at = float(self.get_setting("task_due_at", "0"))
+        except (TypeError, ValueError):
+            self.set_setting("task_status", "Ошибка времени")
+            return
+
+        if due_at > time.time():
+            self._schedule_delivery(token, due_at)
+            return
+
+        try:
+            dialog_id = int(self.get_setting("task_chat_id", "0"))
+            account = int(self.get_setting("task_account", get_selected_account()))
+            message = self.get_setting("task_message", "")
+            if not dialog_id or not isinstance(message, str) or not message:
+                raise ValueError("Не сохранён чат или текст сообщения")
+
+            # Telegram's own sender handles its offline/outgoing queue.
+            # This call is made once; no blind retry is used to avoid duplicates.
+            send_text(dialog_id, message, account=account)
+
+            self.set_setting("task_status", "Передано Telegram")
+            self.set_setting("task_token", "")
+            self.set_setting("task_due_at", "")
+            self.set_setting("task_message", "")
+            self.set_setting("task_chat_id", "")
+            BulletinHelper.show_info("Сообщение передано Telegram для отправки.")
+        except Exception:
+            self.logger.exception("Delayed Message: sending failed")
+            self.set_setting("task_status", "Ошибка отправки — запусти задачу повторно")
+            self.set_setting("task_token", "")
+            self.set_setting("task_due_at", "")
+            self.set_setting("task_message", "")
+            self.set_setting("task_chat_id", "")
