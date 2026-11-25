@@ -153,9 +153,8 @@ public class MainActivity extends Activity {
             else if(tab==3){if(y>=241&&y<300){if(money>=35000){money-=35000;staff++;msg("Новый сотрудник присоединился к команде.");advance();}else msg("Не хватает денег на зарплату и найм.");}
                 else if(y>=345&&y<407){long cost=shopLevel*80000L;if(money>=cost){money-=cost;shopLevel++;msg("Мастерская улучшена до уровня "+shopLevel+".");advance();}else msg("Не хватает средств на улучшение.");}
                 else if(y>=449&&y<512){if(money>=25000){money-=25000;marketing++;reputation=Math.min(100,reputation+3);msg("Реклама запущена. Репутация растёт.");}else msg("Недостаточно денег на рекламу.");}
-                else if(y>=646&&y<686){musicOn=!musicOn;if(musicOn)music.resume();else music.pause();msg("Настройка музыки изменена.");}
-                else if(y>=694&&y<730){voiceOn=!voiceOn;msg("Настройка озвучки изменена.");}
-                else if(y>=694){save();msg("Прогресс сохранён.");}
+                else if(y>=646&&y<686){if(x<195){musicOn=!musicOn;if(musicOn)music.resume();else music.pause();msg("Настройка музыки изменена.");}else{voiceOn=!voiceOn;msg("Настройка озвучки изменена.");}}
+                else if(y>=694&&y<730){save();msg("Прогресс сохранён.");}
             }
             save();invalidate();return true;
         }
