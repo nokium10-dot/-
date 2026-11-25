@@ -209,6 +209,32 @@ async function addCard(userId, card) {
   return { ...card, copyId: Number(r.rows[0].id), obtainedAt: new Date(r.rows[0].obtained_at).getTime() };
 }
 
+
+async function removeCards(userId, cardKey, quantity = 1) {
+  const count = Math.max(1, Math.floor(Number(quantity) || 1));
+  if (!pool) {
+    let removed = 0;
+    for (let i = memory.cards.length - 1; i >= 0 && removed < count; i--) {
+      if (memory.cards[i].userId === Number(userId) && memory.cards[i].id === cardKey) {
+        memory.cards.splice(i, 1);
+        removed++;
+      }
+    }
+    return removed;
+  }
+  const result = await pool.query(
+    `DELETE FROM ncard_cards
+     WHERE id IN (
+       SELECT id FROM ncard_cards
+       WHERE telegram_id=$1 AND card_key=$2
+       ORDER BY obtained_at ASC, id ASC
+       LIMIT $3
+     )`,
+    [String(userId), cardKey, count]
+  );
+  return result.rowCount;
+}
+
 async function getCollection(userId) {
   if (!pool) return memory.cards.filter(c => c.userId === Number(userId)).map(({ userId: _id, ...c }) => c);
   const r = await pool.query(
@@ -421,7 +447,7 @@ async function close() {
 
 module.exports = {
   init, upsertUser, getUser, recordGroupMember, getCooldown, claimCooldown,
-  setCooldown, addCard, getCollection, getGroupRanking, addBalance,
+  setCooldown, addCard, removeCards, getCollection, getGroupRanking, addBalance,
   awardAchievement, setProfileField, massUpgrade, isBlocked, setBlocked, setCardPhoto, getCardPhoto, clearCardPhoto, getStats, logAdminGrant, close,
   persistent: Boolean(pool)
 };
