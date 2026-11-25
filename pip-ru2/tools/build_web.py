@@ -41,6 +41,7 @@ css = (web / "mobile.css").read_text(encoding="utf-8")
 html = (web / "mobile.html").read_text(encoding="utf-8")
 js = (web / "mobile.js").read_text(encoding="utf-8")
 js += "\n" + (web / "mouth.js").read_text(encoding="utf-8")   # тумблер «Рот»
+js += "\n" + (web / "sensors.js").read_text(encoding="utf-8")  # датчики телефона: наклон и тряска
 patch("</style>", css + "\n</style>", "css")
 patch('<script type="importmap">', html + "\n<script>\n" + js + "\n</script>\n\n" + '<script type="importmap">', "markup")
 
@@ -99,6 +100,16 @@ patch("document.getElementById('newpet').onclick = () => {\n  if (!confirm('На
       "document.getElementById('newpet').onclick = async () => {\n"
       "  if (!(await window.pipConfirm('Начать с новым Пипом?', 'Текущий Пип будет забыт навсегда.'))) return;",
       "new pet confirm")
+
+# --- настоящие акселерометр и гироскоп телефона вместо виртуальных (sensors.js) ---
+patch("  for (const a of ['pitch', 'yaw', 'roll']) cur[a] += (tgt[a] - cur[a]) * k;",
+      "  const SN = window.pipSensor && window.pipSensor.frame(dt);\n"
+      "  if (SN) { tgt.pitch = SN.pitch; tgt.roll = SN.roll; tgt.yaw = 0; faceDown = false; }\n"
+      "  for (const a of ['pitch', 'yaw', 'roll']) cur[a] += (tgt[a] - cur[a]) * k;", "sensor pose")
+patch("  M._sim_imu(accel.x, accel.y, accel.z, dt);",
+      "  if (SN) accel.set(SN.ax, SN.ay, SN.az);\n  M._sim_imu(accel.x, accel.y, accel.z, dt);", "sensor accel")
+patch("  M._sim_gyro(dq.x * gk, dq.y * gk, dq.z * gk, dt);",
+      "  if (SN) M._sim_gyro(SN.gx, SN.gy, SN.gz, dt); else M._sim_gyro(dq.x * gk, dq.y * gk, dq.z * gk, dt);", "sensor gyro")
 
 # --- мост между страницей, голосом и Android ---
 patch("window.sim = { M, tgt, cur, dev, advance };", """window.setPipCaseColor = (bodyColor, trimColor) => {
