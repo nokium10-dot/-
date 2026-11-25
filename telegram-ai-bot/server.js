@@ -435,23 +435,23 @@ bot.callbackQuery(/^admin:(stats|catalog|system|internet|blockhelp)$/, async (ct
 
 bot.command("nblock", async (ctx) => {
   if (!isOwner(ctx) || ctx.chat.type !== "private") return ctx.reply("⛔ Доступ запрещён.");
-  const id = String(ctx.match || "").trim().split(/\\s+/)[0];
-  if (!/^\\d+$/.test(id) || Number(id) === OWNER_ID) return ctx.reply("Формат: /nblock ID");
+  const id = String(ctx.match || "").trim().split(/\s+/)[0];
+  if (!/^\d+$/.test(id) || Number(id) === OWNER_ID) return ctx.reply("Формат: /nblock ID");
   await store.setBlocked(id, true, "Заблокирован владельцем");
   await ctx.reply(`Пользователь ${id} заблокирован.`);
 });
 
 bot.command("nunblock", async (ctx) => {
   if (!isOwner(ctx) || ctx.chat.type !== "private") return ctx.reply("⛔ Доступ запрещён.");
-  const id = String(ctx.match || "").trim().split(/\\s+/)[0];
-  if (!/^\\d+$/.test(id)) return ctx.reply("Формат: /nunblock ID");
+  const id = String(ctx.match || "").trim().split(/\s+/)[0];
+  if (!/^\d+$/.test(id)) return ctx.reply("Формат: /nunblock ID");
   await store.setBlocked(id, false);
   await ctx.reply(`Блокировка пользователя ${id} снята.`);
 });
 
 bot.command("nreply", async (ctx) => {
   if (!isOwner(ctx) || ctx.chat.type !== "private") return ctx.reply("⛔ Доступ запрещён.");
-  const match = String(ctx.match || "").match(/^(\\d+)\\s+([\\s\\S]+)/);
+  const match = String(ctx.match || "").match(/^(\d+)\s+([\s\\S]+)/);
   if (!match) return ctx.reply("Формат: /nreply ID текст ответа");
   await ctx.api.sendMessage(Number(match[1]), match[2]);
   await ctx.reply("Ответ отправлен.");
