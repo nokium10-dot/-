@@ -210,9 +210,9 @@ async function giveCard(ctx) {
     const collection = await store.getCollection(ctx.from.id);
     const rarityColor = RARITIES[card.rarity]?.color || "💠";
     const cardCaption =
-      `🎴 **Новая карточка NCARD!**\\n\\n` +
-      `📱 ${card.name}\\n🏭 Производитель: ${card.brand}\\n` +
-      `${rarityColor} Редкость: ${card.rarity}\\n💰 Стоимость: ${money(card.value)}\\n\\n` +
+      `🎴 **Новая карточка NCARD!**\n\n` +
+      `📱 ${card.name}\n🏭 Производитель: ${card.brand}\n` +
+      `${rarityColor} Редкость: ${card.rarity}\n💰 Стоимость: ${money(card.value)}\n\n` +
       "⏳ Следующая карточка через 8 минут.";
     const photoMessage = await sendCardPhoto(ctx, card, {
       caption: cardCaption,
@@ -499,12 +499,12 @@ bot.command("nclearphoto", async (ctx) => {
 
 bot.command("ngivecard", async (ctx) => {
   if (!isOwner(ctx) || ctx.chat.type !== "private") return ctx.reply("⛔ Доступ запрещён.");
-  const args = String(ctx.match || "").trim().split(/\\s+/);
+  const args = String(ctx.match || "").trim().split(/\s+/);
   const targetId = args[0];
   const cardKey = (args[1] || "").toLowerCase();
   const quantity = args[2] === undefined ? 1 : Number(args[2]);
-  if (!/^\\d+$/.test(targetId || "") || !cardKey || !Number.isInteger(quantity) || quantity < 1 || quantity > 100) {
-    return ctx.reply("Формат: /ngivecard ID_игрока ID_карточки [количество]\\nКоличество: от 1 до 100. Пример: /ngivecard 123456789 iphone-15-pro 5");
+  if (!/^\d+$/.test(targetId || "") || !cardKey || !Number.isInteger(quantity) || quantity < 1 || quantity > 100) {
+    return ctx.reply("Формат: /ngivecard ID_игрока ID_карточки [количество]\nКоличество: от 1 до 100. Пример: /ngivecard 123456789 iphone-15-pro 5");
   }
   const card = CARDS.find(item => item.id.toLowerCase() === cardKey);
   if (!card) return ctx.reply("❌ Карточка не найдена. Посмотри ID через /ncatalog.");
@@ -516,7 +516,7 @@ bot.command("ngivecard", async (ctx) => {
     }
     let notified = false;
     try {
-      const caption = `🎁 Тебе выдали карточки NCARD!\\n📱 ${card.name}\\n🏭 ${card.brand}\\nРедкость: ${card.rarity}\\nКоличество: ${quantity}`;
+      const caption = `🎁 Тебе выдали карточки NCARD!\n📱 ${card.name}\n🏭 ${card.brand}\nРедкость: ${card.rarity}\nКоличество: ${quantity}`;
       const photoId = await store.getCardPhoto(card.id);
       if (photoId) await bot.api.sendPhoto(Number(targetId), photoId, { caption });
       else if (card.imageUrl) await bot.api.sendPhoto(Number(targetId), card.imageUrl, { caption });
@@ -525,7 +525,7 @@ bot.command("ngivecard", async (ctx) => {
     } catch (e) {
       console.warn("Could not notify card recipient:", e.message);
     }
-    await ctx.reply(`✅ Выдано игроку ${targetId}: «${card.name}» × ${quantity}.\\n` +
+    await ctx.reply(`✅ Выдано игроку ${targetId}: «${card.name}» × ${quantity}.\n` +
       (notified ? "📨 Игрок получил уведомление." : "⚠️ Уведомление не отправлено; карточки добавлены в коллекцию."));
   } catch (error) {
     console.error("Admin card grant failed:", error);
@@ -535,12 +535,12 @@ bot.command("ngivecard", async (ctx) => {
 
 bot.command("nremovecard", async (ctx) => {
   if (!isOwner(ctx) || ctx.chat.type !== "private") return ctx.reply("⛔ Доступ запрещён.");
-  const args = String(ctx.match || "").trim().split(/\\s+/);
+  const args = String(ctx.match || "").trim().split(/\s+/);
   const targetId = args[0];
   const cardKey = (args[1] || "").toLowerCase();
   const quantity = args[2] === undefined ? 1 : Number(args[2]);
-  if (!/^\\d+$/.test(targetId || "") || !cardKey || !Number.isInteger(quantity) || quantity < 1 || quantity > 1000) {
-    return ctx.reply("Формат: /nremovecard ID_игрока ID_карточки [количество]\\nПример: /nremovecard 123456789 iphone-15-pro 2");
+  if (!/^\d+$/.test(targetId || "") || !cardKey || !Number.isInteger(quantity) || quantity < 1 || quantity > 1000) {
+    return ctx.reply("Формат: /nremovecard ID_игрока ID_карточки [количество]\nПример: /nremovecard 123456789 iphone-15-pro 2");
   }
   const card = CARDS.find(item => item.id.toLowerCase() === cardKey);
   if (!card) return ctx.reply("❌ Карточка не найдена. Посмотри ID через /ncatalog.");
@@ -557,8 +557,8 @@ bot.command("nremovecard", async (ctx) => {
 
 bot.command("ncardcount", async (ctx) => {
   if (!isOwner(ctx) || ctx.chat.type !== "private") return ctx.reply("⛔ Доступ запрещён.");
-  const targetId = String(ctx.match || "").trim().split(/\\s+/)[0];
-  if (!/^\\d+$/.test(targetId || "")) return ctx.reply("Формат: /ncardcount ID_игрока");
+  const targetId = String(ctx.match || "").trim().split(/\s+/)[0];
+  if (!/^\d+$/.test(targetId || "")) return ctx.reply("Формат: /ncardcount ID_игрока");
   const collection = await store.getCollection(Number(targetId));
   await ctx.reply(`📦 У игрока ${targetId} всего карточек: ${collection.length}.`);
 });
