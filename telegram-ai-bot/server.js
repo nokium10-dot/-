@@ -167,6 +167,7 @@ bot.command("start", async (ctx) => {
     "👤 /nakk — профиль\n" +
     "📚 /ncollection — моя коллекция\n" +
     "🏅 /nachievements — достижения\n" +
+    "⚒️ /nallup — массовое улучшение карточек\n" +
     "🏆 /ntop — рейтинг этой группы\n" +
     "⚙️ /nsettings — титулы и фоны профиля"
   );
@@ -247,7 +248,7 @@ bot.command("nallup", async (ctx) => {
   await ctx.reply("⚒️ Выбери редкость. Будут обработаны ВСЕ карточки этой редкости. Успех — 50%, при неудаче карточка теряется.", { reply_markup: keyboard });
 });
 
-bot.callbackQuery(/^upgrade:select:(\\d+)$/, async (ctx) => {
+bot.callbackQuery(/^upgrade:select:(\d+)$/, async (ctx) => {
   const index = Number(ctx.match[1]);
   const rarities = Object.keys(RARITIES);
   const rarity = rarities[index];
@@ -275,7 +276,7 @@ bot.callbackQuery("upgrade:cancel", async (ctx) => {
   await ctx.editMessageText("❌ Массовое улучшение отменено.");
 });
 
-bot.callbackQuery(/^upgrade:confirm:(\\d+)$/, async (ctx) => {
+bot.callbackQuery(/^upgrade:confirm:(\d+)$/, async (ctx) => {
   const index = Number(ctx.match[1]);
   const rarities = Object.keys(RARITIES);
   const rarity = rarities[index];
