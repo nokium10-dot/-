@@ -29,19 +29,7 @@ const RARITIES = {
   "Эксклюзив": { weight: 0.03, color: "💗" }
 };
 
-// Verified starter entries only. Phone images are not synthesized or altered.
-const CARDS = [
-  { id: "iphone-13", name: "iPhone 13", brand: "Apple", rarity: "Обычная", value: 100 },
-  { id: "galaxy-a55", name: "Galaxy A55", brand: "Samsung", rarity: "Обычная", value: 100 },
-  { id: "redmi-note-13", name: "Redmi Note 13", brand: "Xiaomi", rarity: "Обычная", value: 100 },
-  { id: "iphone-14", name: "iPhone 14", brand: "Apple", rarity: "Необычная", value: 300 },
-  { id: "pixel-8", name: "Pixel 8", brand: "Google", rarity: "Необычная", value: 300 },
-  { id: "oneplus-12", name: "OnePlus 12", brand: "OnePlus", rarity: "Редкая", value: 900 },
-  { id: "xiaomi-14-ultra", name: "Xiaomi 14 Ultra", brand: "Xiaomi", rarity: "Редкая", value: 900 },
-  { id: "iphone-16-pro", name: "iPhone 16 Pro", brand: "Apple", rarity: "Эпическая", value: 2500 },
-  { id: "galaxy-s25-ultra", name: "Galaxy S25 Ultra", brand: "Samsung", rarity: "Эпическая", value: 2500 },
-  { id: "pixel-9-pro-xl", name: "Pixel 9 Pro XL", brand: "Google", rarity: "Легендарная", value: 8000 }
-];
+const CARDS = require("./catalog");
 
 const ACHIEVEMENTS = {
   first_card: {
