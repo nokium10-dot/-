@@ -49,7 +49,7 @@ Owner: @nokium, Telegram ID `71195190`. The `/nadmin` panel is available only to
 - Collection is shared between groups; group leaderboard is scoped to the current group.
 - The profile balance is displayed in rubles. T-Coins and P-Coins are not used.
 - Achievement rewards grant rubles and unlock profile titles/backgrounds.
-- Bulk upgrade success chance is currently 50%. Successful cards move up one rarity and receive that rarity's base value; failed cards are deleted. There is no upgrade fee.
+- Bulk upgrade is deterministic: every 3 cards of one rarity are exchanged for 1 card of the next rarity. Any remainder is kept. There is no chance-based loss and no upgrade fee.
 - The `/ncard` cooldown is stored persistently in PostgreSQL.
 
 ## Catalog and images
