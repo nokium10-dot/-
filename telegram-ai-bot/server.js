@@ -430,9 +430,9 @@ bot.callbackQuery(/^admin:(stats|catalog|system|internet|blockhelp)$/, async (ct
 bot.on("message:photo", async (ctx, next) => {
   if (!isOwner(ctx) || ctx.chat.type !== "private") return next();
   const caption = String(ctx.message.caption || "");
-  const match = caption.match(/^\\/nsetphoto(?:@\\w+)?\\s+([a-z0-9-]+)/i);
-  if (!match) return next();
-  const cardKey = match[1];
+  const parts = caption.trim().split(" ").filter(Boolean);
+  if (!parts[0] || parts[0].split("@")[0] !== "/nsetphoto" || !parts[1]) return next();
+  const cardKey = parts[1].toLowerCase();
   const card = CARDS.find(item => item.id === cardKey);
   if (!card) {
     await ctx.reply("Неизвестный ID карточки. Проверь каталог catalog.js.");
