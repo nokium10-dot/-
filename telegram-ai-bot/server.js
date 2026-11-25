@@ -468,7 +468,7 @@ bot.callbackQuery(/^admin:(stats|catalog|system|internet|blockhelp)$/, async (ct
       await ctx.reply(`⚠️ Проверка интернета не прошла: ${error.message}`);
     }
   } else {
-    await ctx.reply("🚫 Управление пользователями:\n/nblock ID — заблокировать пользователя\n/nunblock ID — снять блокировку\n/nreply ID текст — ответить пользователю\n/ncatalog — список ID моделей\n/nsetphoto — добавить официальное фото с подписью и ID модели.");
+    await ctx.reply("🚫 Управление пользователями:\n/nblock ID — заблокировать пользователя\n/nunblock ID — снять блокировку\n/nreply ID текст — ответить пользователю\n/ngivecard ID ID_карточки [количество] — выдать карточки\n/nremovecard ID ID_карточки [количество] — удалить карточки\n/ncardcount ID — узнать количество карточек\n/ncatalog — список ID моделей\n/nsetphoto — добавить официальное фото с подписью и ID модели.");
   }
 });
 
@@ -494,6 +494,73 @@ bot.command("nclearphoto", async (ctx) => {
   if (!CARDS.some(item => item.id === cardKey)) return ctx.reply("Неизвестный ID карточки.");
   await store.clearCardPhoto(cardKey);
   await ctx.reply(`Фото карточки ${cardKey} удалено из настроек.`);
+});
+
+
+bot.command("ngivecard", async (ctx) => {
+  if (!isOwner(ctx) || ctx.chat.type !== "private") return ctx.reply("⛔ Доступ запрещён.");
+  const args = String(ctx.match || "").trim().split(/\\s+/);
+  const targetId = args[0];
+  const cardKey = (args[1] || "").toLowerCase();
+  const quantity = args[2] === undefined ? 1 : Number(args[2]);
+  if (!/^\\d+$/.test(targetId || "") || !cardKey || !Number.isInteger(quantity) || quantity < 1 || quantity > 100) {
+    return ctx.reply("Формат: /ngivecard ID_игрока ID_карточки [количество]\\nКоличество: от 1 до 100. Пример: /ngivecard 123456789 iphone-15-pro 5");
+  }
+  const card = CARDS.find(item => item.id.toLowerCase() === cardKey);
+  if (!card) return ctx.reply("❌ Карточка не найдена. Посмотри ID через /ncatalog.");
+  try {
+    await store.upsertUser({ id: Number(targetId), first_name: "Игрок" });
+    for (let i = 0; i < quantity; i++) {
+      await store.addCard(Number(targetId), card);
+      await store.logAdminGrant(OWNER_ID, Number(targetId), card);
+    }
+    let notified = false;
+    try {
+      const caption = `🎁 Тебе выдали карточки NCARD!\\n📱 ${card.name}\\n🏭 ${card.brand}\\nРедкость: ${card.rarity}\\nКоличество: ${quantity}`;
+      const photoId = await store.getCardPhoto(card.id);
+      if (photoId) await bot.api.sendPhoto(Number(targetId), photoId, { caption });
+      else if (card.imageUrl) await bot.api.sendPhoto(Number(targetId), card.imageUrl, { caption });
+      else await bot.api.sendMessage(Number(targetId), caption);
+      notified = true;
+    } catch (e) {
+      console.warn("Could not notify card recipient:", e.message);
+    }
+    await ctx.reply(`✅ Выдано игроку ${targetId}: «${card.name}» × ${quantity}.\\n` +
+      (notified ? "📨 Игрок получил уведомление." : "⚠️ Уведомление не отправлено; карточки добавлены в коллекцию."));
+  } catch (error) {
+    console.error("Admin card grant failed:", error);
+    await ctx.reply("❌ Не удалось выдать карточки. Проверь логи сервера.");
+  }
+});
+
+bot.command("nremovecard", async (ctx) => {
+  if (!isOwner(ctx) || ctx.chat.type !== "private") return ctx.reply("⛔ Доступ запрещён.");
+  const args = String(ctx.match || "").trim().split(/\\s+/);
+  const targetId = args[0];
+  const cardKey = (args[1] || "").toLowerCase();
+  const quantity = args[2] === undefined ? 1 : Number(args[2]);
+  if (!/^\\d+$/.test(targetId || "") || !cardKey || !Number.isInteger(quantity) || quantity < 1 || quantity > 1000) {
+    return ctx.reply("Формат: /nremovecard ID_игрока ID_карточки [количество]\\nПример: /nremovecard 123456789 iphone-15-pro 2");
+  }
+  const card = CARDS.find(item => item.id.toLowerCase() === cardKey);
+  if (!card) return ctx.reply("❌ Карточка не найдена. Посмотри ID через /ncatalog.");
+  try {
+    const removed = await store.removeCards(Number(targetId), card.id, quantity);
+    await ctx.reply(removed
+      ? `🗑 У игрока ${targetId} удалено карточек «${card.name}»: ${removed}.`
+      : `У игрока ${targetId} нет карточек «${card.name}».`);
+  } catch (error) {
+    console.error("Admin card removal failed:", error);
+    await ctx.reply("❌ Не удалось удалить карточки. Проверь логи сервера.");
+  }
+});
+
+bot.command("ncardcount", async (ctx) => {
+  if (!isOwner(ctx) || ctx.chat.type !== "private") return ctx.reply("⛔ Доступ запрещён.");
+  const targetId = String(ctx.match || "").trim().split(/\\s+/)[0];
+  if (!/^\\d+$/.test(targetId || "")) return ctx.reply("Формат: /ncardcount ID_игрока");
+  const collection = await store.getCollection(Number(targetId));
+  await ctx.reply(`📦 У игрока ${targetId} всего карточек: ${collection.length}.`);
 });
 
 bot.command("nblock", async (ctx) => {
