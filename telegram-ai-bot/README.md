@@ -23,7 +23,7 @@ Optional backup variables:
 - `GITHUB_BACKUP_BRANCH=main`
 - `OWNER_ID=71195190`
 
-The backup script is run with `npm run backup`. Scheduling is not configured yet. Render's free web-service plan does not include a Cron Job; a GitHub Actions workflow still needs to be configured.
+The backup script is run with `npm run backup`. A daily GitHub Actions workflow is included at `.github/workflows/ncard-backup.yml` (03:00 UTC) and can also be started manually. Before it can run, add these repository Actions secrets: `DATABASE_URL`, `GITHUB_BACKUP_TOKEN`, `BACKUP_ENCRYPTION_KEY`, and `TELEGRAM_BOT_TOKEN`. These are separate from Render environment variables. Never commit secret values.
 
 ## Owner
 
@@ -39,7 +39,9 @@ Owner: @nokium, Telegram ID `71195190`. The `/nadmin` panel is available only to
 - `/nsettings` — equip unlocked profile titles and backgrounds.
 - `/nallup` — choose a rarity and confirm a bulk upgrade of every owned card at that rarity.
 - `/ntop` — leaderboard for the current group.
-- `/nadmin` — owner-only statistics and catalog overview.
+- `/nadmin` — owner-only statistics, catalog overview, host load, internet check and block controls.
+- `/nblock ID` and `/nunblock ID` — owner-only user blocking.
+- `/nreply ID text` — owner-only reply to a user through the bot. Private messages to the bot are forwarded to the owner for support.
 
 ## Game rules currently in code
 
@@ -62,5 +64,6 @@ On startup, the app creates or migrates:
 - `ncard_cooldowns`
 - `ncard_group_members`
 - `ncard_admin_log`
+- `ncard_user_blocks`
 
 Without `DATABASE_URL`, storage falls back to temporary process memory and data is lost when the service restarts.
