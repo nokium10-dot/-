@@ -417,20 +417,25 @@ bot.callbackQuery(/^equip:(title|background):(none|[a-z0-9_]+)$/, async (ctx) =>
   await ctx.reply("Настройки сохранены.", { reply_markup: settingsKeyboard(updated) });
 });
 
+function adminKeyboard() {
+  return new InlineKeyboard()
+    .text("📊 Статистика", "admin:stats").text("🎴 Каталог", "admin:catalog").row()
+    .text("🎞 Видео", "admin:media").text("👥 Игроки", "admin:players").row()
+    .text("💰 Экономика", "admin:economy").text("🚫 Блокировки", "admin:blockhelp").row()
+    .text("🖥 Сервер", "admin:system").text("🌐 Интернет", "admin:internet");
+}
+
 bot.command("nadmin", async (ctx) => {
   if (!isOwner(ctx)) return ctx.reply("⛔ Доступ запрещён.");
   if (ctx.chat.type !== "private") return ctx.reply("Открой личный чат с ботом и введи /nadmin.");
-  const keyboard = new InlineKeyboard()
-    .text("📊 Статистика", "admin:stats")
-    .text("📚 Каталог", "admin:catalog")
-    .row()
-    .text("🖥 Нагрузка сервера", "admin:system")
-    .text("🌐 Интернет", "admin:internet")
-    .row()
-    .text("🚫 Блокировка", "admin:blockhelp");
-  await ctx.reply(`🔐 Панель владельца\nВладелец: @${OWNER_USERNAME}\nID: ${OWNER_ID}`, { reply_markup: keyboard });
+  const stats = await store.getStats();
+  const summary = "🔐 Панель управления MEMCARD\n" +
+    "Владелец: @" + OWNER_USERNAME + " · ID: " + OWNER_ID + "\n\n" +
+    "Игроков: " + stats.users + " · Карточек: " + stats.cards + "\n" +
+    "Каталог: " + CARDS.length + " мем-карточек\n" +
+    "Хранилище: " + (store.persistent ? "PostgreSQL" : "временная память");
+  await ctx.reply(summary, { reply_markup: adminKeyboard() });
 });
-
 bot.command("ncatalog", async (ctx) => {
   if (!isOwner(ctx) || ctx.chat.type !== "private") return ctx.reply("⛔ Доступ запрещён.");
   const lines = CARDS.map(card => `${card.id} — ${card.name} (${card.brand})`);
@@ -439,7 +444,7 @@ bot.command("ncatalog", async (ctx) => {
   }
 });
 
-bot.callbackQuery(/^admin:(stats|catalog|system|internet|blockhelp)$/, async (ctx) => {
+bot.callbackQuery(/^admin:(stats|catalog|system|internet|blockhelp|media|players|economy)$/, async (ctx) => {
   if (!isOwner(ctx) || ctx.chat?.type !== "private") {
     await ctx.answerCallbackQuery({ text: "Доступ запрещён", show_alert: true });
     return;
@@ -448,30 +453,45 @@ bot.callbackQuery(/^admin:(stats|catalog|system|internet|blockhelp)$/, async (ct
   await ctx.answerCallbackQuery();
   if (action === "stats") {
     const stats = await store.getStats();
-    await ctx.reply(
-      `📊 Статистика NCARD\nИгроков: ${stats.users}\nВыдано карточек: ${stats.cards}\nСуммарный баланс: ${money(stats.balance)}\nКарточек в каталоге: ${CARDS.length}\nХранилище: ${store.persistent ? "PostgreSQL" : "временная память"}`
-    );
+    await ctx.reply("📊 Статистика MEMCARD\nИгроков: " + stats.users +
+      "\nВыдано карточек: " + stats.cards + "\nСуммарный баланс: " + money(stats.balance) +
+      "\nКарточек в каталоге: " + CARDS.length +
+      "\nХранилище: " + (store.persistent ? "PostgreSQL" : "временная память"), { reply_markup: adminKeyboard() });
   } else if (action === "catalog") {
-    await ctx.reply(`📚 В каталоге ${CARDS.length} моделей. Официальные фото точных моделей ещё не подключены; для них нужны реальные фото или рендеры производителя.\nСписок ID: /ncatalog`);
+    const counts = Object.entries(CARDS.reduce((a, card) => (a[card.rarity]=(a[card.rarity]||0)+1,a), {}))
+      .map(([r,n]) => r + ": " + n).join("\n");
+    await ctx.reply("🎴 Каталог MEMCARD\nВсего карточек: " + CARDS.length + "\n\n" + counts +
+      "\n\nПолный список ID: /ncatalog", { reply_markup: adminKeyboard() });
+  } else if (action === "media") {
+    let connected = 0;
+    for (const card of CARDS) if (await store.getCardVideo(card.id)) connected++;
+    await ctx.reply("🎞 Видео карточек\nПодключено: " + connected + "/" + CARDS.length +
+      "\nНе подключено: " + (CARDS.length-connected) +
+      "\n\nОтправь боту видео с подписью /nsetvideo mell-01. ID карточек смотри через /ncatalog. Видео сохраняется в Telegram.", { reply_markup: adminKeyboard() });
+  } else if (action === "players") {
+    await ctx.reply("👥 Игроки\n/nplayer ID — профиль и коллекция\n/nblock ID — заблокировать\n/nunblock ID — разблокировать\n/nreply ID текст — ответить", { reply_markup: adminKeyboard() });
+  } else if (action === "economy") {
+    await ctx.reply("💰 Экономика AM-очков\n/naddbalance ID сумма — начислить\n/nsetbalance ID сумма — установить\n/nplayer ID — посмотреть баланс", { reply_markup: adminKeyboard() });
   } else if (action === "system") {
-    const cpus = os.cpus();
-    const total = os.totalmem();
-    const free = os.freemem();
+    const cpus = os.cpus(), total = os.totalmem(), free = os.freemem();
     const load = os.loadavg().map(v => v.toFixed(2)).join(" / ");
-    await ctx.reply(`🖥 Нагрузка хоста\nCPU: ${cpus.length} ядер (${cpus[0]?.model || "неизвестно"})\nLoad average (1/5/15 мин): ${load}\nRAM: ${((total-free)/1024/1024/1024).toFixed(2)} / ${(total/1024/1024/1024).toFixed(2)} GB\nПлатформа: ${os.platform()} ${os.arch()}`);
+    await ctx.reply("🖥 Нагрузка хоста\nCPU: " + cpus.length + " ядер (" + (cpus[0]?.model || "неизвестно") +
+      ")\nLoad average (1/5/15 мин): " + load + "\nRAM: " +
+      ((total-free)/1024/1024/1024).toFixed(2) + " / " + (total/1024/1024/1024).toFixed(2) +
+      " GB\nПлатформа: " + os.platform() + " " + os.arch(), { reply_markup: adminKeyboard() });
   } else if (action === "internet") {
     const started = Date.now();
     try {
       const response = await fetch("https://api.telegram.org", { signal: AbortSignal.timeout(5000) });
-      await ctx.reply(`🌐 Интернет доступен. Telegram API ответил HTTP ${response.status}; задержка ${Date.now()-started} мс.`);
+      await ctx.reply("🌐 Интернет доступен. Telegram API: HTTP " + response.status +
+        "; задержка " + (Date.now()-started) + " мс.", { reply_markup: adminKeyboard() });
     } catch (error) {
-      await ctx.reply(`⚠️ Проверка интернета не прошла: ${error.message}`);
+      await ctx.reply("⚠️ Проверка интернета не прошла: " + error.message, { reply_markup: adminKeyboard() });
     }
   } else {
-    await ctx.reply("🚫 Управление пользователями:\n/nblock ID — заблокировать пользователя\n/nunblock ID — снять блокировку\n/nreply ID текст — ответить пользователю\n/ngivecard ID ID_карточки [количество] — выдать карточки\n/nremovecard ID ID_карточки [количество] — удалить карточки\n/ncardcount ID — узнать количество карточек\n/ncatalog — список ID моделей\n/nsetphoto — добавить официальное фото с подписью и ID модели.");
+    await ctx.reply("🚫 Управление игроками:\n/nblock ID — заблокировать\n/nunblock ID — разблокировать\n/nplayer ID — профиль игрока\n/nreply ID текст — ответить\n/ngivecard ID ID_карточки [кол-во] — выдать\n/nremovecard ID ID_карточки [кол-во] — удалить\n/naddbalance ID сумма — начислить AM-очки\n/nsetbalance ID сумма — установить баланс\n/ncardcount ID — количество карточек", { reply_markup: adminKeyboard() });
   }
 });
-
 bot.on("message:photo", async (ctx, next) => {
   if (!isOwner(ctx) || ctx.chat.type !== "private") return next();
   const caption = String(ctx.message.caption || "");
