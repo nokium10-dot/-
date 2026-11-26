@@ -104,6 +104,13 @@ async function sendCardPhoto(ctx, card, options = {}) {
   }
 }
 
+async function sendCardVideo(ctx, card, options = {}) {
+  const fileId = await store.getCardVideo(card.id);
+  if (!fileId) return null;
+  try { return await ctx.replyWithVideo(fileId, { supports_streaming: true, ...options }); }
+  catch (error) { console.warn("Could not send video for " + card.id + ": " + error.message); return null; }
+}
+
 async function checkAchievements(ctx, collection, card) {
   const userId = ctx.from.id;
   const ids = [];
@@ -210,17 +217,12 @@ async function giveCard(ctx) {
     const collection = await store.getCollection(ctx.from.id);
     const rarityColor = RARITIES[card.rarity]?.color || "💠";
     const cardCaption =
-      `🎴 **Новая карточка NCARD!**\n\n` +
-      `📱 ${card.name}\n🏭 Производитель: ${card.brand}\n` +
-      `${rarityColor} Редкость: ${card.rarity}\n💰 Стоимость: ${money(card.value)}\n\n` +
-      "⏳ Следующая карточка через 8 минут.";
-    const photoMessage = await sendCardPhoto(ctx, card, {
-      caption: cardCaption,
-      parse_mode: "Markdown"
-    });
-    if (!photoMessage) {
-      await ctx.reply(cardCaption, { parse_mode: "Markdown" });
-    }
+      `🎴 **Новая мем-карточка MEMCARD!**\n\n` +
+      `🎬 ${card.name}\n` +
+      `${rarityColor} Редкость: ${card.rarity}\n💎 Стоимость: ${money(card.value)}\n\n` +
+      "⏳ Следующую карточку можно получить через 8 минут.";
+    const videoMessage = await sendCardVideo(ctx, card, { caption: cardCaption, parse_mode: "Markdown" });
+    if (!videoMessage) await ctx.reply(cardCaption + "\n\nВидео этой карточки пока не подключено.", { parse_mode: "Markdown" });
     await checkAchievements(ctx, collection, card);
   } catch (error) {
     throw error;
@@ -306,7 +308,7 @@ bot.callbackQuery(/^upgrade:select:(\d+)$/, async (ctx) => {
     `⚒️ Улучшение редкости «${rarity}» → «${next}»\n` +
     `Карточек для попытки: ${count}\n` +
     `Шанс для каждой карточки: ${chance}%\n\n` +
-    `Каждый смартфон проверяется отдельно. При успехе он станет «${next}» стоимостью ${money(RARITY_VALUES[next])}; при неудаче останется прежней редкости. Карточки не расходуются.`,
+    `Каждая карточка проверяется отдельно. При успехе она станет «${next}» стоимостью ${money(RARITY_VALUES[next])}; при неудаче останется прежней редкости. Карточки не расходуются.`,
     { reply_markup: keyboard }
   );
 });
@@ -536,11 +538,10 @@ bot.command("ngivecard", async (ctx) => {
     }
     let notified = false;
     try {
-      const caption = `🎁 Тебе выдали карточки NCARD!\n📱 ${card.name}\n🏭 ${card.brand}\nРедкость: ${card.rarity}\nКоличество: ${quantity}`;
-      const photoId = await store.getCardPhoto(card.id);
-      if (photoId) await bot.api.sendPhoto(Number(targetId), photoId, { caption });
-      else if (card.imageUrl) await bot.api.sendPhoto(Number(targetId), card.imageUrl, { caption });
-      else await bot.api.sendMessage(Number(targetId), caption);
+      const caption = `🎁 Тебе выдали карточки MEMCARD!\n🎬 ${card.name}\nРедкость: ${card.rarity}\nСтоимость: ${money(card.value)}\nКоличество: ${quantity}`;
+      const videoId = await store.getCardVideo(card.id);
+      if (videoId) await bot.api.sendVideo(Number(targetId), videoId, { caption, supports_streaming: true });
+      else await bot.api.sendMessage(Number(targetId), caption + "\nВидео пока не подключено.");
       notified = true;
     } catch (e) {
       console.warn("Could not notify card recipient:", e.message);
@@ -581,6 +582,56 @@ bot.command("ncardcount", async (ctx) => {
   if (!/^\d+$/.test(targetId || "")) return ctx.reply("Формат: /ncardcount ID_игрока");
   const collection = await store.getCollection(Number(targetId));
   await ctx.reply(`📦 У игрока ${targetId} всего карточек: ${collection.length}.`);
+});
+
+
+bot.command("nplayer", async (ctx) => {
+  if (!isOwner(ctx) || ctx.chat.type !== "private") return ctx.reply("⛔ Доступ запрещён.");
+  const id = String(ctx.match || "").trim().split(/\s+/)[0];
+  if (!/^\d+$/.test(id || "")) return ctx.reply("Формат: /nplayer ID");
+  const user = await store.getUser(Number(id));
+  if (!user) return ctx.reply("Игрок пока не зарегистрирован.");
+  const collection = await store.getCollection(Number(id));
+  await ctx.reply("👤 Игрок " + id + "\nИмя: " + (user.name || "неизвестно") +
+    "\nUsername: " + (user.username ? "@" + user.username : "не указан") +
+    "\nБаланс: " + money(user.balance) + "\nКарточек: " + collection.length +
+    "\nДостижений: " + (user.achievements || []).length +
+    "\nБлокировка: " + (await store.isBlocked(Number(id)) ? "включена" : "нет"));
+});
+
+bot.command("naddbalance", async (ctx) => {
+  if (!isOwner(ctx) || ctx.chat.type !== "private") return ctx.reply("⛔ Доступ запрещён.");
+  const args = String(ctx.match || "").trim().split(/\s+/);
+  const id = args[0], amount = Number(args[1]);
+  if (!/^\d+$/.test(id || "") || !Number.isSafeInteger(amount) || amount < 1 || amount > 1000000000)
+    return ctx.reply("Формат: /naddbalance ID сумма (1–1 000 000 000)");
+  await store.upsertUser({ id: Number(id), first_name: "Игрок" });
+  const balance = await store.addBalance(Number(id), amount);
+  await ctx.reply("Начислено " + money(amount) + " игроку " + id + ". Новый баланс: " + money(balance) + ".");
+});
+
+bot.command("nsetbalance", async (ctx) => {
+  if (!isOwner(ctx) || ctx.chat.type !== "private") return ctx.reply("⛔ Доступ запрещён.");
+  const args = String(ctx.match || "").trim().split(/\s+/);
+  const id = args[0], amount = Number(args[1]);
+  if (!/^\d+$/.test(id || "") || !Number.isSafeInteger(amount) || amount < 0 || amount > 100000000000)
+    return ctx.reply("Формат: /nsetbalance ID сумма (от 0 до 100 000 000 000)");
+  await store.upsertUser({ id: Number(id), first_name: "Игрок" });
+  const balance = await store.setBalance(Number(id), amount);
+  await ctx.reply("Баланс игрока " + id + " установлен: " + money(balance) + ".");
+});
+
+bot.on("message", async (ctx, next) => {
+  if (!isOwner(ctx) || ctx.chat?.type !== "private") return next();
+  const caption = String(ctx.message?.caption || "").trim();
+  const match = caption.match(/^\/nsetvideo(?:@\w+)?\s+([a-z0-9_-]+)$/i);
+  if (!match) return next();
+  const card = CARDS.find(item => item.id === match[1].toLowerCase());
+  if (!card) return ctx.reply("Неизвестный ID карточки. Посмотри /ncatalog.");
+  const media = ctx.message.video || (ctx.message.document?.mime_type?.startsWith("video/") ? ctx.message.document : null);
+  if (!media?.file_id) return ctx.reply("Пришли видео MP4 с подписью /nsetvideo " + card.id);
+  await store.setCardVideo(card.id, media.file_id);
+  await ctx.reply("Видео для «" + card.name + "» сохранено.");
 });
 
 bot.command("nblock", async (ctx) => {
