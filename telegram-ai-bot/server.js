@@ -193,7 +193,7 @@ async function sendProfile(ctx, userId, chatId) {
     `🔗 ${username}\n\n` +
     `🏆 Место в группе: ${placeText}\n` +
     `💰 Баланс: ${money(user?.balance)}\n` +
-    `📱 Карточек: ${collection.length}\n` +
+    `🎴 Карточек: ${collection.length}\n` +
     `💎 Стоимость коллекции: ${money(totalValue)}\n` +
     `🏅 Достижений: ${achievementNames.length}/${Object.keys(ACHIEVEMENTS).length}\n` +
     `🎖 Титул: ${user?.title || "не выбран"}\n` +
@@ -392,7 +392,7 @@ bot.command("nachievements", async (ctx) => {
   const lines = Object.entries(ACHIEVEMENTS).map(([id, a]) =>
     `${owned.has(id) ? "✅" : "🔒"} ${a.name} — ${a.description} (+${money(a.reward)})`
   );
-  await ctx.reply("🏅 Достижения NCARD\n\n" + lines.join("\n"));
+  await ctx.reply("🏅 Достижения MEMCARD\n\n" + lines.join("\n"));
 });
 
 bot.command("ntop", async (ctx) => {
@@ -405,7 +405,7 @@ bot.command("ntop", async (ctx) => {
   const lines = ranking.map((u, i) =>
     `${i + 1}. ${u.name || (u.username ? "@" + u.username : u.id)} — ${u.count} карточек`
   );
-  await ctx.reply("🏆 Рейтинг NCARD этой группы\n\n" + lines.join("\n"));
+  await ctx.reply("🏆 Рейтинг MEMCARD этой группы\n\n" + lines.join("\n"));
 });
 
 function settingsKeyboard(user) {
@@ -486,7 +486,7 @@ bot.command("ncatalog", async (ctx) => {
   if (!isOwner(ctx) || ctx.chat.type !== "private") return ctx.reply("⛔ Доступ запрещён.");
   const lines = CARDS.map(card => `${card.id} — ${card.name} (${card.brand})`);
   for (let i = 0; i < lines.length; i += 25) {
-    await ctx.reply(`📚 Каталог NCARD ${i + 1}–${Math.min(i + 25, lines.length)} из ${lines.length}\n\n${lines.slice(i, i + 25).join("\n")}`);
+    await ctx.reply(`📚 Каталог MEMCARD ${i + 1}–${Math.min(i + 25, lines.length)} из ${lines.length}\n\n${lines.slice(i, i + 25).join("\n")}`);
   }
 });
 
@@ -774,10 +774,10 @@ bot.on("message", async (ctx) => {
 });
 
 bot.catch((error) => {
-  console.error("NCARD Telegram handler error:", error);
+  console.error("MEMCARD Telegram handler error:", error);
 });
 
-app.get("/", (_req, res) => res.status(200).send("NCARD Telegram bot is running."));
+app.get("/", (_req, res) => res.status(200).send("MEMCARD Telegram bot is running."));
 app.get("/health", (_req, res) => res.json({ ok: true, storage: store.persistent ? "postgres" : "memory" }));
 
 app.post(`/telegram/${WEBHOOK_SECRET}`, async (req, res) => {
@@ -794,7 +794,7 @@ let server;
 async function start() {
   await store.init();
   server = app.listen(PORT, async () => {
-    console.log(`NCARD HTTP server listening on ${PORT}`);
+    console.log(`MEMCARD HTTP server listening on ${PORT}`);
     const publicUrl = process.env.RENDER_EXTERNAL_URL;
     if (!publicUrl) {
       console.error("RENDER_EXTERNAL_URL is missing; webhook was not configured.");
@@ -802,7 +802,7 @@ async function start() {
     }
     try {
       await bot.init();
-      console.log(`NCARD bot initialized: @${bot.botInfo.username}`);
+      console.log(`MEMCARD bot initialized: @${bot.botInfo.username}`);
       await bot.api.setMyCommands([
         { command: "ncard", description: "Получить карточку (кулдаун 8 минут)" },
         { command: "nakk", description: "Мой профиль" },
@@ -834,6 +834,6 @@ async function shutdown() {
 process.on("SIGTERM", shutdown);
 process.on("SIGINT", shutdown);
 start().catch(error => {
-  console.error("NCARD startup failed:", error);
+  console.error("MEMCARD startup failed:", error);
   process.exit(1);
 });
