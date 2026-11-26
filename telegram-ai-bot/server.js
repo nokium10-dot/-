@@ -79,7 +79,7 @@ function formatTime(ms) {
 }
 
 function money(value) {
-  return `${Number(value || 0).toLocaleString("ru-RU")} ₽`;
+  return `${Number(value || 0).toLocaleString("ru-RU")} AM-очков`;
 }
 
 async function sendCardPhoto(ctx, card, options = {}) {
@@ -179,7 +179,7 @@ bot.use(async (ctx, next) => {
 
 bot.command("start", async (ctx) => {
   await ctx.reply(
-    "Добро пожаловать в NCARD!\n\n" +
+    "Добро пожаловать в MEMCARD!\n\n" +
     "🎴 /ncard — получить карточку (кулдаун 8 минут)\n" +
     "👤 /nakk — профиль\n" +
     "📚 /ncollection — моя коллекция\n" +
@@ -250,10 +250,10 @@ bot.command("ncollection", async (ctx) => {
 });
 
 const RARITY_VALUES = {
-  "Обычная": 100, "Необычная": 300, "Редкая": 900,
-  "Эпическая": 2500, "Легендарная": 8000, "Мифическая": 20000,
-  "Древняя": 50000, "Божественная": 100000, "Секретная": 250000,
-  "Эксклюзив": 1000000
+  "Обычная": 1000, "Необычная": 3000, "Редкая": 10000,
+  "Эпическая": 30000, "Легендарная": 100000, "Мифическая": 300000,
+  "Древняя": 1000000, "Божественная": 3000000, "Секретная": 10000000,
+  "Эксклюзив": 30000000
 };
 
 const UPGRADE_CHANCES = {
