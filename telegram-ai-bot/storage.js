@@ -388,6 +388,39 @@ async function getCardPhoto(cardKey) {
   return r.rowCount ? r.rows[0].telegram_file_id : null;
 }
 
+async function setCardVideo(cardKey, fileId) {
+  if (!pool) {
+    memory.cardVideos ||= new Map();
+    memory.cardVideos.set(cardKey, fileId);
+    return;
+  }
+  await pool.query(
+    "INSERT INTO ncard_card_assets(card_key,telegram_file_id) VALUES($1,$2) ON CONFLICT(card_key) DO UPDATE SET telegram_file_id=EXCLUDED.telegram_file_id,updated_at=NOW()",
+    [`video:${cardKey}`, fileId]
+  );
+}
+
+async function getCardVideo(cardKey) {
+  if (!pool) return memory.cardVideos?.get(cardKey) || null;
+  const r = await pool.query("SELECT telegram_file_id FROM ncard_card_assets WHERE card_key=$1", [`video:${cardKey}`]);
+  return r.rowCount ? r.rows[0].telegram_file_id : null;
+}
+
+async function setBalance(userId, amount) {
+  if (!Number.isSafeInteger(amount) || amount < 0) throw new Error("Balance must be a non-negative safe integer.");
+  if (!pool) {
+    const u = memoryUser(userId);
+    u.balance = amount;
+    return u.balance;
+  }
+  const r = await pool.query(
+    "UPDATE ncard_users SET balance=$2,updated_at=NOW() WHERE telegram_id=$1 RETURNING balance",
+    [String(userId), amount]
+  );
+  if (!r.rowCount) throw new Error("User not found.");
+  return Number(r.rows[0].balance);
+}
+
 async function clearCardPhoto(cardKey) {
   if (!pool) {
     memory.cardAssets?.delete(cardKey);
@@ -448,6 +481,6 @@ async function close() {
 module.exports = {
   init, upsertUser, getUser, recordGroupMember, getCooldown, claimCooldown,
   setCooldown, addCard, removeCards, getCollection, getGroupRanking, addBalance,
-  awardAchievement, setProfileField, massUpgrade, isBlocked, setBlocked, setCardPhoto, getCardPhoto, clearCardPhoto, getStats, logAdminGrant, close,
+  awardAchievement, setProfileField, massUpgrade, isBlocked, setBlocked, setCardPhoto, getCardPhoto, setCardVideo, getCardVideo, setBalance, clearCardPhoto, getStats, logAdminGrant, close,
   persistent: Boolean(pool)
 };
