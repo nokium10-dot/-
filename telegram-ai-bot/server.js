@@ -1,5 +1,7 @@
 const express = require("express");
-const { Bot, InlineKeyboard } = require("grammy");
+const { Bot, InlineKeyboard, InputFile } = require("grammy");
+const path = require("path");
+const yauzl = require("yauzl");
 const os = require("os");
 const store = require("./storage");
 
@@ -102,6 +104,48 @@ async function sendCardPhoto(ctx, card, options = {}) {
     console.warn(`Could not send card photo for ${card.id}:`, error.message);
     return null;
   }
+}
+
+
+function extractMp4Entries(zipBuffer) {
+  return new Promise((resolve, reject) => {
+    yauzl.fromBuffer(zipBuffer, { lazyEntries: true, decodeStrings: true }, (error, zip) => {
+      if (error) return reject(error);
+      const entries = [];
+      let totalBytes = 0;
+      zip.on("error", reject);
+      zip.on("entry", (entry) => {
+        const filename = path.basename(entry.fileName);
+        if (entry.fileName.endsWith("/") || !/\.mp4$/i.test(filename)) {
+          zip.readEntry();
+          return;
+        }
+        if (entry.uncompressedSize > 10 * 1024 * 1024 || totalBytes + entry.uncompressedSize > 30 * 1024 * 1024) {
+          zip.close();
+          reject(new Error("Видео в архиве превышают допустимый размер."));
+          return;
+        }
+        zip.openReadStream(entry, (streamError, stream) => {
+          if (streamError) return reject(streamError);
+          const chunks = [];
+          stream.on("data", chunk => chunks.push(chunk));
+          stream.on("error", reject);
+          stream.on("end", () => {
+            const data = Buffer.concat(chunks);
+            totalBytes += data.length;
+            entries.push({ filename, data });
+            zip.readEntry();
+          });
+        });
+      });
+      zip.on("end", () => resolve(entries));
+      zip.readEntry();
+    });
+  });
+}
+
+function normalizeVideoFilename(filename) {
+  return path.basename(filename).replace(/\.mp4$/i, "").replace(/^TikTok_/i, "").replace(/\s*\(\d+\)$/, "");
 }
 
 async function sendCardVideo(ctx, card, options = {}) {
@@ -469,7 +513,7 @@ bot.callbackQuery(/^admin:(stats|catalog|system|internet|blockhelp|media|players
     for (const card of CARDS) if (await store.getCardVideo(card.id)) connected++;
     await ctx.reply("🎞 Видео карточек\nПодключено: " + connected + "/" + CARDS.length +
       "\nНе подключено: " + (CARDS.length-connected) +
-      "\n\nОтправь боту видео с подписью /nsetvideo mell-01. ID карточек смотри через /ncatalog. Видео сохраняется в Telegram.", { reply_markup: adminKeyboard() });
+      "\n\nОтправь архив с подписью /nimportzip — бот сам сопоставит файлы и подключит видео. Для одного ролика: /nsetvideo mell-01. ID смотри через /ncatalog.", { reply_markup: adminKeyboard() });
   } else if (action === "players") {
     await ctx.reply("👥 Игроки\n/nplayer ID — профиль и коллекция\n/nblock ID — заблокировать\n/nunblock ID — разблокировать\n/nreply ID текст — ответить", { reply_markup: adminKeyboard() });
   } else if (action === "economy") {
@@ -658,6 +702,61 @@ bot.command("nreply", async (ctx) => {
   await ctx.reply("Ответ отправлен.");
 });
 
+
+
+bot.on("message:document", async (ctx, next) => {
+  if (!isOwner(ctx) || ctx.chat?.type !== "private") return next();
+  const caption = String(ctx.message.caption || "").trim();
+  if (!/^\/nimportzip(?:@\w+)?$/i.test(caption)) return next();
+  const doc = ctx.message.document;
+  if (!/\.zip$/i.test(doc.file_name || "") && doc.mime_type !== "application/zip" && doc.mime_type !== "application/x-zip-compressed") {
+    return ctx.reply("Прикрепи ZIP-архив с видео и подпиши его /nimportzip.");
+  }
+  if (Number(doc.file_size || 0) > 20 * 1024 * 1024) return ctx.reply("Архив больше 20 МБ. Отправь ZIP как документ меньшего размера.");
+  const status = await ctx.reply("⏳ Получаю архив и подготавливаю импорт видео...");
+  try {
+    const file = await ctx.api.getFile(doc.file_id);
+    if (!file.file_path) throw new Error("Telegram не вернул путь к архиву.");
+    const response = await fetch("https://api.telegram.org/file/bot" + process.env.TELEGRAM_BOT_TOKEN + "/" + file.file_path, {
+      signal: AbortSignal.timeout(60000)
+    });
+    if (!response.ok) throw new Error("Не удалось скачать архив из Telegram: HTTP " + response.status);
+    const zipBuffer = Buffer.from(await response.arrayBuffer());
+    if (zipBuffer.length > 20 * 1024 * 1024) throw new Error("Архив превышает лимит 20 МБ.");
+    const entries = await extractMp4Entries(zipBuffer);
+    const imported = [];
+    const skipped = [];
+    const seen = new Set();
+    for (const entry of entries) {
+      const sourceId = normalizeVideoFilename(entry.filename);
+      const card = CARDS.find(item => item.sourceFile === sourceId);
+      if (!card || seen.has(card.id)) {
+        skipped.push(entry.filename);
+        continue;
+      }
+      seen.add(card.id);
+      const sent = await bot.api.sendVideo(OWNER_ID, new InputFile(entry.data, entry.filename), {
+        caption: "Импорт видео для карточки " + card.id,
+        supports_streaming: true
+      });
+      const videoId = sent.video?.file_id;
+      if (!videoId) {
+        skipped.push(entry.filename);
+        continue;
+      }
+      await store.setCardVideo(card.id, videoId);
+      try { await bot.api.deleteMessage(OWNER_ID, sent.message_id); } catch (_) {}
+      imported.push(card.id);
+    }
+    await ctx.api.editMessageText(ctx.chat.id, status.message_id,
+      "✅ Импорт завершён.\nПодключено видео: " + imported.length + "/" + CARDS.length +
+      "\nПропущено файлов: " + skipped.length +
+      "\n\nОткрой /nadmin → «Видео», чтобы проверить каталог.");
+  } catch (error) {
+    console.error("MEMCARD ZIP import failed:", error);
+    await ctx.api.editMessageText(ctx.chat.id, status.message_id, "❌ Не удалось импортировать архив: " + error.message);
+  }
+});
 
 bot.on("message", async (ctx) => {
   if (!ctx.from || !ctx.chat || ctx.chat.type !== "private" || isOwner(ctx)) return;
